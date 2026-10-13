@@ -1,0 +1,350 @@
+{
+  "upstreamCommit": "54edef453ca3fc495f488c30de97eaea0c789f19",
+  "date": "2026-10-13",
+  "source": ".",
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "assets/template.html",
+      "sha256": "a6d5c13114aa25267a83c5d2264855eb1045a9425c09b0e5107e50bf2ae0161a"
+    },
+    {
+      "path": "delta/architecture-delta.mjs",
+      "sha256": "cf7d46bc56d9752cd6a1299b249ecf7b08ef0e8a159242f02c87748796c382ad"
+    },
+    {
+      "path": "editor/auto-layout.mjs",
+      "sha256": "5e6cbecd219cc3f10f67271b5d90bca9ff0fbacf775950f9dd1543e3ccf11ca4"
+    },
+    {
+      "path": "editor/batch-fonts.mjs",
+      "sha256": "6797d276dd6098d73811109f00aa94bafb910b7d92ea6a2be2a3c360de2fa38e"
+    },
+    {
+      "path": "editor/benchmark-routes.mjs",
+      "sha256": "df98e46b99c2d1eb80122f4d86fb7fb799ee2491b96dda118f0f1f693056c7fe"
+    },
+    {
+      "path": "editor/deliver.mjs",
+      "sha256": "dec9ed3894a6e12b154a21b4ee871f1f51906d5159935387440384a4aff2a9a4"
+    },
+    {
+      "path": "editor/drawio-adapter.mjs",
+      "sha256": "73e23d4a440c3b4a42f7a7514dabb766407607a23a78d9a815f0031b93610a5c"
+    },
+    {
+      "path": "editor/drawio-frame.html",
+      "sha256": "c4b8ec197889d9f770591576249888fbfac135cae5c0cf5a282f45524c50fed5"
+    },
+    {
+      "path": "editor/editor.html",
+      "sha256": "5bb095185d42c0ccea94ca780bb5334905b7541f4530c15350d88e7fc169ac6a"
+    },
+    {
+      "path": "editor/large-graph.mjs",
+      "sha256": "d9d4addf5065340cdee86e22c997eef2f7d3e481eb0a4e2805e21dce89e23aa6"
+    },
+    {
+      "path": "editor/orthogonal-tools.mjs",
+      "sha256": "bf359e00a2e53fd6fd673377216b2feece43f18bfe11bc71be0c298790e31ea4"
+    },
+    {
+      "path": "editor/README.md",
+      "sha256": "6d8c150eb80a54653b204070d46da499c37d99e44d384dbb12895ab93b05f5e7"
+    },
+    {
+      "path": "editor/route-preview-cache.mjs",
+      "sha256": "6e79a2abb4013ad5567c0e967cc84d24b03575c755658a39ec72bf22d130a51c"
+    },
+    {
+      "path": "editor/route-preview.mjs",
+      "sha256": "77ea20d20fc34fbec626bcd2d61d0bc032a66f8b899b697d900e04acdab18ac9"
+    },
+    {
+      "path": "editor/scene-normalize.mjs",
+      "sha256": "2a09b4c40d780ed99ee07c3e02b14af9e1c3b3304f82c5c85b8ab1680cc1cd09"
+    },
+    {
+      "path": "editor/schema-editor.html",
+      "sha256": "016e0bd9de5e8ab71358c7173d9171389b4333dd2581dfcab6c5e16287bd9d3a"
+    },
+    {
+      "path": "editor/serve-schema.mjs",
+      "sha256": "bef317bc363cc11eb79d453ddb3ea983d59d1b58c73f36c07caa7a5b71afa352"
+    },
+    {
+      "path": "editor/serve.mjs",
+      "sha256": "0ab0f985128c0450f8b895e8e74c36af1135003ac6dff9e024fbf9420ab9faf6"
+    },
+    {
+      "path": "editor/test-auto-layout.mjs",
+      "sha256": "21732038d1ce7e11785a01ecb45b2b653a0b8da1c609c4c15e78f308acc2b2b7"
+    },
+    {
+      "path": "editor/test-batch-fonts.mjs",
+      "sha256": "ee9e0a6f072701887900ce24379ed462232dc270b627d44baf080762009c2b76"
+    },
+    {
+      "path": "editor/test-editor.mjs",
+      "sha256": "c302d21bb836d0edb69e0f2d1696396aa2f7badf958048e98da3f443902e06ff"
+    },
+    {
+      "path": "editor/test-export.mjs",
+      "sha256": "5c68ff7d1c49d7dc4a4fb986d21ae95718b05d7e971daed54206e70484ef9cf9"
+    },
+    {
+      "path": "editor/test-font-drag.mjs",
+      "sha256": "2c6d77aa53b51f5013c82028ac08e6337bf8a9bd592a995e60cb3876ff45cd8f"
+    },
+    {
+      "path": "editor/test-interaction.mjs",
+      "sha256": "22a3fe616f59f84189994e1b88eb098338343eb982fdfb83fdc07da41df81aab"
+    },
+    {
+      "path": "editor/test-label-color.mjs",
+      "sha256": "94b483ae4d0253bf7a0ab48ab0dd5425acef4069ef6a3497ae841922767eab5e"
+    },
+    {
+      "path": "editor/test-large-browser.mjs",
+      "sha256": "69da03f8b1773693d3286d26ca37a039a79a1a071651fa30685c7efda2ad5510"
+    },
+    {
+      "path": "editor/test-large-graph.mjs",
+      "sha256": "38f0f2f5ba258ad3d77a913200ba0da075f7b83929a0d4636ba21a62a6f28e42"
+    },
+    {
+      "path": "editor/test-route-pipeline.mjs",
+      "sha256": "09987bcc901b5c032c5d9033b9f308f343dd9cb94fdfc1673f998a13014cccf3"
+    },
+    {
+      "path": "editor/test-schema-editor.mjs",
+      "sha256": "b20c990f71ae696ec7275b5c53d527aa4a5dac0aebfd8993e445416fc83fc93e"
+    },
+    {
+      "path": "editor/test-text-geometry.mjs",
+      "sha256": "8eb89593a2b958f116297585e636e8c0a8c88b8b7b560c8ebf6f910b593a9d6f"
+    },
+    {
+      "path": "editor/vendor/drawio/app.min.js",
+      "sha256": "30e0e7ec734b081928b3facd4044c421943e67337a457ad4f655bf4c72c83a32"
+    },
+    {
+      "path": "editor/vendor/drawio/LICENSE",
+      "sha256": "5ad8c213095c573921d7388edf93f6a9f54490b8ebf3b165ae8ef1947cf70846"
+    },
+    {
+      "path": "editor/vendor/drawio/mxgraph/css/common.css",
+      "sha256": "95710454db13cc76e51a84eb80d212174b941e7d60fc3c65a8e93e31a6e68b14"
+    },
+    {
+      "path": "editor/vendor/drawio/resources/dia_zh.txt",
+      "sha256": "3b43e81a33eecc57cc343cfd87d05e5d95269360222c66e8e1e46af29cf017b0"
+    },
+    {
+      "path": "editor/vendor/drawio/resources/dia.txt",
+      "sha256": "74ba8532b2fe3097117479a9f4f841ffa0df410931524ba5dc0a2ebbc6d5e5cf"
+    },
+    {
+      "path": "editor/vendor/drawio/SOURCE.json",
+      "sha256": "222b9dd52e476e6f9ad08bbfa1b89b5c29791a5feaa4f3221d9d449f0947cfb5"
+    },
+    {
+      "path": "editor/vendor/drawio/styles/dark-default.xml",
+      "sha256": "5e6845c8e1bd0d1e3593b5aac375a55093703e1b57cd35348b47f03e6e6dd012"
+    },
+    {
+      "path": "editor/vendor/drawio/styles/default-old.xml",
+      "sha256": "3078148bc7e2cab8aeaa1c0942b9c95c3043cf7c762de0be7e93527f9fbde448"
+    },
+    {
+      "path": "editor/vendor/drawio/styles/default.xml",
+      "sha256": "f1f93e829a0ed8a5c62aa0db84177352ef745b578b3c990ee5ef9158098d22bd"
+    },
+    {
+      "path": "editor/vendor/drawio/styles/fonts/ArchitectsDaughter-Regular.ttf",
+      "sha256": "8116fb167643f707c4a99f544e9bcdb9cb7ba00c0a72c9bbc9e0b20966ed9810"
+    },
+    {
+      "path": "editor/vendor/drawio/styles/grapheditor.css",
+      "sha256": "255a9c7292b8243d6feaa7467ef06345079ef41e07cb47197a2ec49ef665df4e"
+    },
+    {
+      "path": "editor/vendor/drawio/styles/high-contrast.css",
+      "sha256": "f0dde60cb72e43f25b2a0a5c8fac4dcd04173f9ca1f5f710d9008e4f229bf427"
+    },
+    {
+      "path": "editor/vendor/drawio/styles/thumb_horz.png",
+      "sha256": "375ec4a4de1fcb9bbca1d37fc6e984bb7cc07024686e677bd722e65e9e254e92"
+    },
+    {
+      "path": "editor/vendor/drawio/styles/thumb_vertical.png",
+      "sha256": "81c093bb9865e9116ee5507c908290906f141170bd6b79e734820ddbe01a01b3"
+    },
+    {
+      "path": "examples/dataflow-product-analytics.html",
+      "sha256": "94fb8699f5fdd5180725cf54dd1897d005f03d38ef511503aa47d6165fa45a41"
+    },
+    {
+      "path": "examples/lifecycle-agent-run.html",
+      "sha256": "2f0fdab1e38b7ae31e8ef9e83960b1a7dfdca8673ed24f2e7297e25a2696c3bd"
+    },
+    {
+      "path": "examples/locales/de.json",
+      "sha256": "23da45de9338998832e2a9988753607ec54617249b5770711eada60fbab0ef95"
+    },
+    {
+      "path": "examples/locales/es.json",
+      "sha256": "b625e9880fdcc1918a6effddfede00186bb8169f873245076ed09393df14a5a6"
+    },
+    {
+      "path": "examples/locales/fr.json",
+      "sha256": "80a19e89d3f33824dd067345e1df6251703b599358fb9d1a06b851900734909e"
+    },
+    {
+      "path": "examples/locales/it.json",
+      "sha256": "e1b19709b4e78aaad85ce33853ea40a9fde287804f7c8253ae9822feaa6a26e3"
+    },
+    {
+      "path": "examples/locales/ja.json",
+      "sha256": "70307bda63aced40e49215d3dc4b535def770740a6076aec2fa0b3025e63a094"
+    },
+    {
+      "path": "examples/locales/ko.json",
+      "sha256": "44aeb4b5259af47f14f4ff1a50ecb1a6070ed9b1a5ae55bb887b6c9393f2fa72"
+    },
+    {
+      "path": "examples/locales/pt.json",
+      "sha256": "d2fa3a8be71033397a646c39e196d4853bb34a65f9e567d804bc112d3cdb8868"
+    },
+    {
+      "path": "examples/locales/ru.json",
+      "sha256": "a74481408b780099021dab77c112224550617fdc135ae7d5f422a84aecfa5438"
+    },
+    {
+      "path": "examples/sequence-cache-miss-request.html",
+      "sha256": "b3727df867965f1044938c49c469e45b73deaa4d9f31351a64f6e798d100e872"
+    },
+    {
+      "path": "examples/web-app-rendered.html",
+      "sha256": "b330a04b247843556750e66919f43a718f41538137150848ef585809d815a5ba"
+    },
+    {
+      "path": "examples/workflow-agent-tool-call-rendered.html",
+      "sha256": "6873df5b47814d006e4587130cf8284705bf4f652a761801bf47dbe747fc5743"
+    },
+    {
+      "path": "LOCAL_CUSTOMIZATION.md",
+      "sha256": "be1ab8b1c40b37c00602125de814440bee547fa4a3517f78efdce53523974dcf"
+    },
+    {
+      "path": "README.md",
+      "sha256": "91b2054990c2d82fdba670b0c00e8b911d2c4bc1655410877c3b38790fb6f1e7"
+    },
+    {
+      "path": "references/authoring-contract.md",
+      "sha256": "629e661516da43375df168892f2356c90b34e64369cad37bb98643f981493bbc"
+    },
+    {
+      "path": "references/authoring-defaults.md",
+      "sha256": "e2dca0a1483c6152751658e7c4b6113d360997e2e2f15b5fe387bc65fc081761"
+    },
+    {
+      "path": "references/delivery-contract.md",
+      "sha256": "0ec9580341e403dfda0d7a8c16916379c55ea8577db8911fd91a81453cdd3f1a"
+    },
+    {
+      "path": "references/visual-acceptance.md",
+      "sha256": "8e638f59f2911ea516b65702d72d840e9faf16b049ad28e2e61eb14afc7225a9"
+    },
+    {
+      "path": "renderers/architecture/labels.mjs",
+      "sha256": "87c378208b09b54d964aeda25c90ef88e24e7c7ffa65696e4b3db73a06856d8a"
+    },
+    {
+      "path": "renderers/architecture/render-architecture.mjs",
+      "sha256": "c900922248f23a431ea127f0bfeb0f90052bdc7350860d20493fa2151ac3fb28"
+    },
+    {
+      "path": "renderers/architecture/routing.mjs",
+      "sha256": "dc53e75c00cacf928292d47106d76e66c2186d1eaa265fbba75185cc95fd6ba2"
+    },
+    {
+      "path": "renderers/shared/architecture-position.mjs",
+      "sha256": "5135cfba3c78024b4a5b37ce18deb625e27276ed24b5039871d80477356613f9"
+    },
+    {
+      "path": "renderers/shared/cli.mjs",
+      "sha256": "b2186bfde3ebc4c7e8c64e841f25edb36d74015e2448aaaf700e04d1e93c53e5"
+    },
+    {
+      "path": "renderers/shared/generated-validators.mjs",
+      "sha256": "a08f20ddb3a50b5ce22fe27d0a1eda0cde087469e3e8700427722a1c50500dac"
+    },
+    {
+      "path": "renderers/shared/geometry.mjs",
+      "sha256": "c75d84f0f6d5bd6372e56b558c02652ed5f5532ad2528b2be3771ce3093e5a0e"
+    },
+    {
+      "path": "renderers/shared/i18n.mjs",
+      "sha256": "73c362b02f829d26f6a8e32317e88c7066a0ff4c0f73b7eac77749d67af3c303"
+    },
+    {
+      "path": "renderers/shared/legend.mjs",
+      "sha256": "c43b5d3dc411a484220fc05323850ba067543e6f93bd8cad7eb9ab12383174c9"
+    },
+    {
+      "path": "renderers/shared/text-style.mjs",
+      "sha256": "01029daf7b2ff2eeb1426eee533e65712798b03f318fe291b82020b4d20ccb40"
+    },
+    {
+      "path": "renderers/shared/utils.mjs",
+      "sha256": "ae777278fdb90310af2f8bcd38e0d26b30887608e68ae35393cbbc35d74b032c"
+    },
+    {
+      "path": "renderers/shared/validator.mjs",
+      "sha256": "c409427f8b48a59f9ef936ed681f3eb93e8d16d966e9fc4ed667ef162c9d65f4"
+    },
+    {
+      "path": "schemas/architecture.schema.json",
+      "sha256": "d7844e1122991026d36b85bd917f12e56e8d3db49c5ddea005c7c8ff8a129322"
+    },
+    {
+      "path": "schemas/common.schema.json",
+      "sha256": "0af5dbb216f498039e86494bc965d7cd66fd0c05a0ff2394d3c2d59207973100"
+    },
+    {
+      "path": "scripts/delivery-update-child.mjs",
+      "sha256": "f5a97cc5517223d7f67db41523ebfe288ee57468430aaabaaf1df71298bdea99"
+    },
+    {
+      "path": "scripts/VISUAL_REGRESSION.md",
+      "sha256": "576f45facc438d9cc0bc7eec57afc1f944ed3ec9c6ebd3186285ec662c7740ef"
+    },
+    {
+      "path": "scripts/visual-regression.mjs",
+      "sha256": "1b15c60212c0cb2ac0a6eca998136d6d86a97bb448e83477601180be98cbbfaf"
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "39d83ee9e0efc525a549ac6dd41bf592cd290893da28be810d9ce470518b21e6"
+    },
+    {
+      "path": "test/export-browser.test.mjs",
+      "sha256": "0864411017c587e95dd555d36a48c9c3a8473b67d29e3dfc3cfb0c92e616af74"
+    },
+    {
+      "path": "test/export-cleanup-browser.test.mjs",
+      "sha256": "6bb677e8e27059d1ff7088870b5e1e4ae3c7cf78d554477da213e38f35972518"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "12046fdf7ad4b3ee4f98576a235943f963945c4494e45325ec2d1e103882e6db"
+    }
+  ],
+  "requiredEditor": "Archify · 可视化编辑器",
+  "drawioEngine": {
+    "version": "29.7.9",
+    "source": "user-provided Desktop resources/app.asar",
+    "sourceSha256": "c4d881b128b102dd4e5db23d29d410d828122e208cbd1901ca37ce62a8824d40"
+  }
+}
