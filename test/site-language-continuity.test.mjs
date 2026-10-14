@@ -1,4 +1,5 @@
-import { test } from 'node:test';
+import { test as nodeTest } from 'node:test';
+import { missingParentFile, parentMonorepoTest } from './helpers/parent-monorepo.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -9,12 +10,15 @@ import vm from 'node:vm';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { ChromeVisualBrowser, findChrome } from '../bin/visual-check.mjs';
-import { DIAGRAM_TYPES, DIAGRAM_TYPE_LABELS } from '../../scripts/site-copy.mjs';
-import { CASES } from '../../website/src/data/gallery-presentation.mjs';
 import { SCENARIO_RECIPES } from '../recipes/scenarios.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
+const parentFiles = ["scripts/site-copy.mjs","website/src/data/gallery-presentation.mjs","docs/assets/site-language.js"];
+const parentMissing = missingParentFile(repoRoot, parentFiles);
+const test = parentMonorepoTest(nodeTest, repoRoot, parentFiles);
+const { DIAGRAM_TYPES, DIAGRAM_TYPE_LABELS } = parentMissing ? {} : await import('../../scripts/site-copy.mjs');
+const { CASES } = parentMissing ? {} : await import('../../website/src/data/gallery-presentation.mjs');
 const runtimePath = path.join(repoRoot, 'docs/assets/site-language.js');
 const navigationPath = path.join(repoRoot, 'docs/assets/site-navigation.css');
 const integrationEnabled = process.env.ARCHIFY_SITE_INTEGRATION === '1';

@@ -1,4 +1,5 @@
-import { test } from 'node:test';
+import { test as nodeTest } from 'node:test';
+import { parentMonorepoTest } from './helpers/parent-monorepo.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -11,6 +12,8 @@ import { SCENARIO_RECIPES, startPromptsFor } from '../recipes/scenarios.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(skillRoot, '..');
+const parentFiles = ["scripts/build-start.mjs","docs/start.html"];
+const test = parentMonorepoTest(nodeTest, repoRoot, parentFiles);
 
 class FakeElement {
   constructor({ id = '', textContent = '', dataset = {} } = {}) {
@@ -172,7 +175,7 @@ test('start page: offers five bounded bilingual starts without ingesting source 
   assert.doesNotMatch(scriptMatch[1], /innerHTML/);
 });
 
-test('start page: canonical recipes own description and repository prompt variants', () => {
+nodeTest('start page: canonical recipes own description and repository prompt variants', () => {
   const selected = new Map([
     ['architecture', 'system-overview'],
     ['workflow', 'agent-tool-call'],
@@ -229,7 +232,7 @@ test('start page: input mode drives rendered prompt, copy, keyboard, and URL wit
   assert.deepEqual([viewEvent.step, promptEvent.step, starterEvent.step], ['start_view', 'prompt_copy', 'starter_copy']);
 });
 
-test('generated artifacts omit the promotional footer and shortcut manual', () => {
+nodeTest('generated artifacts omit the promotional footer and shortcut manual', () => {
   const examples = {
     architecture: 'web-app.architecture.json',
     workflow: 'agent-tool-call.workflow.json',
@@ -262,7 +265,7 @@ test('generated artifacts omit the promotional footer and shortcut manual', () =
   }
 });
 
-test('viewer gives wide screens a larger canvas without forcing a subtitle row', () => {
+nodeTest('viewer gives wide screens a larger canvas without forcing a subtitle row', () => {
   const template = fs.readFileSync(path.join(skillRoot, 'assets', 'template.html'), 'utf8');
   assert.match(template, /max-width: var\(--archify-reader-width, 1440px\)/);
   assert.match(template, /Archify\.readerLayout = \(function \(\)/);

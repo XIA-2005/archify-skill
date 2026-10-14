@@ -18,6 +18,16 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-test-'));
 
 let failures = 0;
 
+// Missing monorepo resources are optional; all other read errors remain fatal.
+function readOptional(file) {
+  try { return fs.readFileSync(file, 'utf8'); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    console.log('  skip  optional monorepo resource absent: ' + file);
+    return null;
+  }
+}
+
 function check(name, ok, detail) {
   if (ok) {
     console.log(`  ok    ${name}`);
@@ -86,9 +96,9 @@ for (const [mode, input, golden] of GOLDEN) {
   try {
     render(mode, path.join(skillRoot, 'examples', input), out);
     const fresh = fs.readFileSync(out, 'utf8');
-    const checked = fs.readFileSync(path.join(repoRoot, 'examples', golden), 'utf8');
+    const checked = readOptional(path.join(repoRoot, 'examples', golden));
     const packaged = fs.readFileSync(path.join(skillRoot, 'examples', golden), 'utf8');
-    check(`${mode}: ${golden}`, normalizeNewlines(fresh) === normalizeNewlines(checked),
+    if (checked !== null) check(`${mode}: ${golden}`, normalizeNewlines(fresh) === normalizeNewlines(checked),
       `fresh render differs from examples/${golden}; if the change is intentional, re-render the examples and commit them`);
     check(`${mode}: packaged ${golden}`, normalizeNewlines(fresh) === normalizeNewlines(packaged),
       `fresh render differs from archify/examples/${golden}; re-render the packaged examples and rebuild archify.zip`);
@@ -161,18 +171,24 @@ function blocks(html, tag) {
 }
 
 const template = fs.readFileSync(path.join(skillRoot, 'assets/template.html'), 'utf8');
-const webApp = fs.readFileSync(path.join(repoRoot, 'examples/web-app.html'), 'utf8');
+const webApps = [
+  ['packaged web-app-rendered.html', fs.readFileSync(path.join(skillRoot, 'examples/web-app-rendered.html'), 'utf8')],
+  ['web-app.html', readOptional(path.join(repoRoot, 'examples/web-app.html'))],
+];
 // <style> and <script> blocks pass through applyTemplate untouched, so the
 // architecture-mode example must contain them verbatim or it has drifted.
-for (const tag of ['style', 'script']) {
+for (const [name, webApp] of webApps) {
+  if (webApp === null) continue;
+  for (const tag of ['style', 'script']) {
   // The guided-view JSON script is generated from meta.views; compare only
   // template-owned executable scripts, not per-diagram data payloads.
   const isTemplateOwned = (block) => !block.includes('type="application/json"');
   const t = blocks(template, tag).filter((b) => !b.includes('[PROJECT NAME]') && isTemplateOwned(b));
   const w = blocks(webApp, tag).filter((b) => !b.includes('Sample Web App') && isTemplateOwned(b));
-  check(`web-app.html ${tag} blocks match template`,
+  check(`${name} ${tag} blocks match template`,
     JSON.stringify(t) === JSON.stringify(w),
-    'examples/web-app.html was generated from a stale template — re-derive it');
+    `${name} was generated from a stale template — re-derive it`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -196,19 +212,22 @@ check('SKILL.md metadata version matches package.json major.minor',
   `SKILL.md says ${skillVersion}, package.json says ${pkg.version}`);
 
 for (const readmeName of ['README.md', 'README_EN.md', 'README_ZH.md', 'README_JA.md']) {
-  const readme = fs.readFileSync(path.join(repoRoot, readmeName), 'utf8');
+  const readme = readOptional(path.join(repoRoot, readmeName));
+  if (readme === null) continue;
   const badgeVersions = shieldsBadgeMessages(readme, 'version');
   check(`${readmeName} badge matches package.json version`,
     badgeVersions.length > 0 && badgeVersions.every((version) => version === pkg.version),
     `${readmeName} badge says ${[...new Set(badgeVersions)].join(', ') || '(missing)'} instead of ${pkg.version}`);
 }
 
-const landingPage = fs.readFileSync(path.join(repoRoot, 'docs/index.html'), 'utf8');
+const landingPage = readOptional(path.join(repoRoot, 'docs/index.html'));
+if (landingPage !== null) {
 const landingVersions = [...landingPage.matchAll(/\bv\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\b/g)]
   .map((match) => match[0]);
 check('GitHub Pages version labels match package.json',
   landingVersions.length > 0 && landingVersions.every((v) => v === `v${pkg.version}`),
   `landing page says ${[...new Set(landingVersions)].join(', ') || '(no version)'}`);
+}
 
 // ---------------------------------------------------------------------------
 fs.rmSync(tmp, { recursive: true, force: true });

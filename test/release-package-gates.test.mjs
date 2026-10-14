@@ -1,5 +1,6 @@
 import { gitTool } from './helpers/git-tool.mjs';
-import { test } from 'node:test';
+import { test as nodeTest } from 'node:test';
+import { missingParentFile, parentMonorepoTest } from './helpers/parent-monorepo.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -7,10 +8,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { stageSourceSkill, sourceGitEnvironment } from './helpers/source-index.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
+const parentFiles = ["scripts/stage-clean-skill.mjs",".github/workflows/release.yml",".github/workflows/ci.yml"];
+const parentMissing = missingParentFile(repoRoot, parentFiles);
+const test = parentMonorepoTest(nodeTest, repoRoot, parentFiles);
+// source-index.mjs imports the parent stage-clean-skill.mjs; load it only when present.
+const { stageSourceSkill, sourceGitEnvironment } = parentMissing ? {} : await import('./helpers/source-index.mjs');
 
 const canonicalZipNodeMajor = 22;
 const canonicalZipZlibVersion = '1.3.1-e00f703';

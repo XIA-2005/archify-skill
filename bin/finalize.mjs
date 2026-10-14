@@ -554,6 +554,8 @@ export function compactFinalizeReceipt(receipt) {
     evidence: receipt.evidence,
     ...(receipt.update ? { update: receipt.update } : {}),
     visualReview: receipt.visualReview || 'not-requested',
+    // Passing gates are not visual acceptance; agents must still inspect screenshots.
+    visualAcceptance: 'human-required',
     durationMs: receipt.durationMs,
   };
   const metrics = receipt.stages?.check?.receipt?.composition?.metrics;
@@ -683,6 +685,7 @@ export async function runFinalize({
     diagnostics: [],
     evidence: { receipt: resolvedReceipt, summaryReceipt: resolvedSummary },
     visualReview: 'not-requested',
+    visualAcceptance: 'human-required',
   };
   const persistReceipts = () => {
     assertReceiptPaths();

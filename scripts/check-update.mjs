@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
+import { assertCustomization, assertBeforeApplyUpdate } from './assert-customization.mjs';
 
 import {
   DEFAULT_MANIFEST_URL,
@@ -1307,6 +1308,7 @@ function notification(localRelease, candidate, source) {
     source,
     checkedAt: candidate.checkedAt,
     noticeRequired: true,
+    customizationDrift: assertCustomization(),
   };
 }
 
@@ -1597,6 +1599,9 @@ export async function checkForUpdate({
     return silent('cache-unavailable');
   }
 }
+
+// Apply paths must call assertBeforeApplyUpdate() before overwriting editor/ or SKILL.
+export { assertBeforeApplyUpdate };
 
 export async function setUpdatePreference({
   releasePath = defaultReleasePath,

@@ -1,4 +1,5 @@
-import { test } from 'node:test';
+import { test as nodeTest } from 'node:test';
+import { parentMonorepoTest } from './helpers/parent-monorepo.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -11,6 +12,8 @@ import { gitTool } from './helpers/git-tool.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(skillRoot, '..');
+const parentFiles = ["README.md","README_EN.md","README_ZH.md","README_JA.md","scripts/build-readme-showcase.mjs"];
+const test = parentMonorepoTest(nodeTest, repoRoot, parentFiles);
 const assetPath = path.join(repoRoot, 'docs', 'assets', 'archify-live-proof.gif');
 const receiptPath = path.join(repoRoot, 'docs', 'assets', 'archify-live-proof.json');
 

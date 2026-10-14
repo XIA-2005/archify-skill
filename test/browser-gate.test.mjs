@@ -72,7 +72,7 @@ for (const outcome of [{ status: 7, signal: null }, { status: null, signal: 'SIG
 
 test('CI and release use the same browser command and retain WebM decoding', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(skillRoot, 'package.json'), 'utf8'));
-  assert.equal(manifest.scripts['test:browser'], 'node ../scripts/run-browser-tests.mjs');
+  assert.equal(manifest.scripts['test:browser'], 'node scripts/optional-monorepo.mjs run-browser-tests.mjs');
   for (const workflow of ['ci.yml', 'release.yml']) {
     const source = fs.readFileSync(path.join(repoRoot, '.github/workflows', workflow), 'utf8');
     const gate = source.match(/ {6}- name: Run shared browser regression gate\n([\s\S]*?)(?=\n {6}- name:|\n {2}[\w-]+:|$)/)?.[1];

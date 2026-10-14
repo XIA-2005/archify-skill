@@ -1,4 +1,5 @@
-import { test } from 'node:test';
+import { test as nodeTest } from 'node:test';
+import { missingParentFile, parentMonorepoTest } from './helpers/parent-monorepo.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -7,11 +8,15 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
-import { stageSourceSkill } from './helpers/source-index.mjs';
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const skillsPackage = require.resolve('skills/package.json');
+const parentFiles = ["scripts/stage-clean-skill.mjs","archify.zip",".agents/skills/archify-review/SKILL.md"];
+const parentMissing = missingParentFile(repoRoot, parentFiles);
+const test = parentMonorepoTest(nodeTest, repoRoot, parentFiles);
+// source-index.mjs imports the parent stage-clean-skill.mjs; load it only when present.
+const { stageSourceSkill } = parentMissing ? {} : await import('./helpers/source-index.mjs');
+const skillsPackage = parentMissing ? '' : require.resolve('skills/package.json');
 const skillsCli = path.join(path.dirname(skillsPackage), 'bin', 'cli.mjs');
 const [major, minor] = process.versions.node.split('.').map(Number);
 // Archify supports Node 18+, while this external installer's own minimum is 22.20.

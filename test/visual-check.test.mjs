@@ -2319,7 +2319,8 @@ test('public visual-check CLI reports a committed cleanup warning', (t) => {
   assert.equal(JSON.parse(fs.readFileSync(outputs.receipt, 'utf8')).status, 'skipped');
 });
 
-test('visual-check retries transient remote ENOTEMPTY during staging cleanup', async (t) => {
+for (const cleanupCode of ['ENOTEMPTY', 'EBUSY', 'EPERM']) {
+ test(`visual-check retries transient remote ${cleanupCode} during staging cleanup`, async (t) => {
   const input = artifact('transient-staging-enotempty.html');
   const outputDirectory = path.dirname(input);
   const rmdirSync = fs.rmdirSync.bind(fs);
@@ -2327,7 +2328,7 @@ test('visual-check retries transient remote ENOTEMPTY during staging cleanup', a
   t.mock.method(fs, 'rmdirSync', (directory, ...args) => {
     if (!injected && path.basename(String(directory)).startsWith('.archify-visual-check-')) {
       injected = true;
-      throw Object.assign(new Error('simulated remote deletion visibility delay'), { code: 'ENOTEMPTY' });
+      throw Object.assign(new Error('simulated remote deletion visibility delay'), { code: cleanupCode });
     }
     return rmdirSync(directory, ...args);
   });
@@ -2342,7 +2343,8 @@ test('visual-check retries transient remote ENOTEMPTY during staging cleanup', a
   assert.equal(result.exitCode, 0);
   assert.deepEqual(result.receipt.diagnostics, []);
   assert.deepEqual(stagingDirectories(outputDirectory), []);
-});
+ });
+}
 
 for (const scenario of ['successful evidence set', 'failure receipt', 'publication rollback']) {
   test(`visual-check closes staged bindings before SMB cleanup for ${scenario}`, async (t) => {
@@ -3191,4 +3193,13 @@ test('authored Architecture scroll requires readable unclipped document flow and
     assert.equal(viewport.verticalScrollAccepted, accepted, name);
     assert.equal(viewport.readerLayout, null, 'the fixed canvas does not acquire adaptive scaling');
   }
+});
+
+test('visual-check cleans private staging when Chrome resolution throws', async () => {
+  const input = artifact('chrome-resolution-throws.html');
+  await assert.rejects(runVisualCheck({
+    artifactPath: input,
+    resolveChrome: () => { throw new Error('synthetic Chrome resolution failure'); },
+  }), /synthetic Chrome resolution failure/);
+  assert.deepEqual(stagingDirectories(path.dirname(input)), []);
 });

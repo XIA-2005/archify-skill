@@ -26,7 +26,7 @@
     },
     {
       "path": "editor/deliver.mjs",
-      "sha256": "dec9ed3894a6e12b154a21b4ee871f1f51906d5159935387440384a4aff2a9a4"
+      "sha256": "308a4d73e73db6c8bc4943b9438dc26f5bd14d77c315c6f884cb5fd639b15131"
     },
     {
       "path": "editor/drawio-adapter.mjs",
@@ -234,7 +234,7 @@
     },
     {
       "path": "LOCAL_CUSTOMIZATION.md",
-      "sha256": "48b7077f8233da4bf3d8a0a26606952bb1cbbd9763277c6b12e4914032d521da"
+      "sha256": "a84ef3b43147d5434c1f15a7d33f932d7088d9436d75cef2ae5a8dae81c0375f"
     },
     {
       "path": "README.md",
@@ -254,7 +254,7 @@
     },
     {
       "path": "references/visual-acceptance.md",
-      "sha256": "8e638f59f2911ea516b65702d72d840e9faf16b049ad28e2e61eb14afc7225a9"
+      "sha256": "f45149cd706551b957da25925e444808e46705ccae85e52470aa41b39c4adf4a"
     },
     {
       "path": "renderers/architecture/labels.mjs",
@@ -322,7 +322,7 @@
     },
     {
       "path": "SKILL.md",
-      "sha256": "bbb5e1c793e144718e41fd312ef05eb1b4a6de18c40ee7c48b3577e4049e1998"
+      "sha256": "bc88d9f4b613595e0d4ff455981aef8d6ba13e99c08b1004a17d54bc42dbb823"
     },
     {
       "path": "test/export-browser.test.mjs",
@@ -339,6 +339,74 @@
     {
       "path": "references/viewer-runtime.md",
       "sha256": "65dc295128cd8e38a2c269f5210adc5bc269d75b4b8f1743db0a7a6f662f304a"
+    },
+    {
+      "path": "bin/visual-check.mjs",
+      "sha256": "30f6437ce8420286857fedd56a7bd5a4f10e6b400cae49f5d3f1d01652c4364a"
+    },
+    {
+      "path": "renderers/shared/atomic-output.mjs",
+      "sha256": "9324cc0a01d006ed428a8dbefecf95a3a10db2dc4c4af63078030397caca0646"
+    },
+    {
+      "path": "package.json",
+      "sha256": "f5549047532a1933fc9af12dd21544e22c77ee33778dd1deb8521910fbb8d345"
+    },
+    {
+      "path": "scripts/optional-monorepo.mjs",
+      "sha256": "e0fde870fe1262c5b99a9b8c02dd446301e0453d73363d9aad70dfc559ab7bc9"
+    },
+    {
+      "path": "scripts/run-standalone-tests.mjs",
+      "sha256": "86b81d318eecbf805f073ded2635bc73a62aaa931619c359fc7a9a95d9d3a2fe"
+    },
+    {
+      "path": "editor/test-transparent-grid.mjs",
+      "sha256": "927f7084f48fb8e80d735dd34af55de8570f18d995a0dd93d722e8889de3f757"
+    },
+    {
+      "path": "editor/test-viewport.mjs",
+      "sha256": "36d3132af5235c7157954e9f95bec9b71528f84740ac8134646b289c3a04670e"
+    },
+    {
+      "path": "editor/test-boundary-label.mjs",
+      "sha256": "7334cb647381286e008198e80d932f4888e8b5b0a9f08b41747230266ef00826"
+    },
+    {
+      "path": "bin/finalize.mjs",
+      "sha256": "8d86c10f483eba7e87f945bb71d8c6f1f1c4832cc35e19efc54fdc339a1b62a0"
+    },
+    {
+      "path": "bin/delivery-update.mjs",
+      "sha256": "b4b949567f31a21ba63de9b7d736e10ad8417be2233ba101ee2e4dd49b3fb9e3"
+    },
+    {
+      "path": "scripts/assert-customization.mjs",
+      "sha256": "9f28e26a7b926683ca2a31ec23536c8cf97827c4b4f8f8e2edce741b659bf94a"
+    },
+    {
+      "path": "scripts/check-update.mjs",
+      "sha256": "f1edb0b32e92f76b01b70175b45a366206b7041844b9e54d16e2ea27c7090c15"
+    },
+    {
+      "path": "references/update-awareness.md",
+      "sha256": "3667c3ae4baf0c8a458eb6e87181ce88d1e40a2cd987986618abcedd695afd58"
+    },
+    {
+      "path": "test/visual-acceptance-receipt.test.mjs",
+      "sha256": "9491ff3ea1b6aa5170a0d22ba94a122f39defc4aec91fd45ff85d1f6b4da2dfc"
+    },
+    {
+      "path": "test/assert-customization.test.mjs",
+      "sha256": "b02c6195d75ca5335c78b186bc5447e6563311fdc15055cc028f0fd563ab9dce"
+    },
+    {
+      "path": "test/helpers/parent-monorepo.mjs",
+      "sha256": "bc11408029ffa9e6bace8062d42528de3ebcc617bce64a1dfb105c98352f1a81"
+    },
+    {
+      "path": "test/editor-deliver-cleanup.test.mjs",
+      "sha256": "3d5ab912e200b1575572a9681ff79622ae0b65ca56df39ab647cfae5fdacfb45"
     }
   ],
   "requiredEditor": "Archify · 可视化编辑器",

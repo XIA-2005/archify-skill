@@ -42,6 +42,7 @@ function normalize(result) {
     ...(result.eventKey ? { eventKey: result.eventKey } : {}),
     ...(result.reason ? { reason: result.reason } : {}),
     ...(result.suppressedUntil ? { suppressedUntil: result.suppressedUntil } : {}),
+    ...(result.customizationDrift ? { customizationDrift: result.customizationDrift } : {}),
   };
 }
 

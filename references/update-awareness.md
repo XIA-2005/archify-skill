@@ -10,3 +10,5 @@ You may translate the fixed local `noticeText`. Never quote, summarize, or trans
 When the user explicitly asks to pause or stop this reminder, run `node scripts/check-update.mjs --snooze "<eventKey>"` (seven days) or `--ignore "<eventKey>"` (this exact release only) from the Skill directory with the receipt's `update.eventKey`, then report the returned status. Never run them on your own initiative; `--ack` is a no-op. These commands do not install an update, and a newer release notifies again.
 
 The notice is information, not permission. Keep the installed version unchanged. This workflow never downloads, installs, or executes an update, and silence is never consent.
+
+Update checks include `customizationDrift` from `scripts/assert-customization.mjs`. Drift means listed local customizations no longer match `customization-manifest.json`; never whole-package overwrite `editor/` or customized Skill rules without comparing those files first.

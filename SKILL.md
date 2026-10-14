@@ -105,7 +105,7 @@ Read Mermaid for topology and meaning, then author fresh Archify JSON; do not me
 
 ## Delivery
 
-**Visual-first completion gate:** `finalize: pass` is a technical prerequisite only. Follow [Visual acceptance](references/visual-acceptance.md), including actual 1440x900 screenshot inspection for every Architecture and Workflow >=8 nodes, before claiming finished professional visual quality. The primary flow, legible text, grouping, appropriate whitespace, and clear arrows must all be judged separately. Never report `visual_review: passed` based only on a CLI receipt. Compare same-viewport before/after evidence for a visual repair.
+**Visual-first completion gate:** `finalize: pass` is a technical prerequisite only. Follow [Visual acceptance](references/visual-acceptance.md), including actual 1440x900 screenshot inspection for every Architecture and Workflow >=8 nodes, before claiming finished professional visual quality. The primary flow, legible text, grouping, appropriate whitespace, and clear arrows must all be judged separately. Never report `visual_review: passed` based only on a CLI receipt. Receipts use `visualAcceptance: "human-required"` (code never writes `"passed"`). The final reply must cite absolute screenshot paths and viewports from the delivery/visual-check receipt. Compare same-viewport before/after evidence for a visual repair.
 
 Use `editor/deliver.mjs` for the first candidate and after every repair; inspect its new screenshots.
 
@@ -153,7 +153,7 @@ When shell access is unavailable, hand-place architecture SVG into `assets/templ
 
 ## Output
 
-State the actual `visual_review` status alongside automated evidence and the double-delivery outputs. Only an inspected image meeting [Visual acceptance](references/visual-acceptance.md) may be called visually polished; `finalize`, an editor preview, or a screenshot receipt alone cannot confer that claim. A visually unfinished chart must be called out explicitly.
+State the actual `visual_review` status alongside automated evidence and the double-delivery outputs. When screenshots exist, list their absolute paths (light/dark) and viewport sizes; do not treat `ok:true` or finalize success as visual acceptance. Only an inspected image meeting [Visual acceptance](references/visual-acceptance.md) may be called visually polished; `finalize`, an editor preview, or a screenshot receipt alone cannot confer that claim. A visually unfinished chart must be called out explicitly.
 
 For each new diagram delivery, return **both** the checked HTML absolute path and the live visual editor page URL (plus the `candidate.json` source path), following Mandatory dual delivery. Include the diagram type, validation summary, specification/artifact receipt, browser-evidence status, and truthful visual-review status. If either output is unavailable, disclose the missing deliverable explicitly rather than presenting the dual delivery as complete. Do not claim success for a non-zero command or claim visual inspection you did not perform.
 

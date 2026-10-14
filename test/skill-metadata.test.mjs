@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parse } from 'yaml';
+import { missingParentFile } from './helpers/parent-monorepo.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.join(here, '..');
@@ -91,7 +92,14 @@ test('skill keeps the title hierarchy compact by default', () => {
 
 // The review Skill remains available to repository maintainers, but must not
 // enter an unfiltered consumer install from the repository root.
-test('contributor review skill is internal and retains its repository references', () => {
+test('contributor review skill is internal and retains its repository references', (t) => {
+  const missing = missingParentFile(path.resolve(skillRoot, '..'), [
+    '.agents/skills/archify-review/SKILL.md', 'REVIEWING.md', 'CONTRIBUTING.md',
+  ]);
+  if (missing) {
+    t.skip('parent monorepo absent: ' + missing);
+    return;
+  }
   const reviewRoot = path.resolve(skillRoot, '..', '.agents', 'skills', 'archify-review');
   const review = readFileSync(path.join(reviewRoot, 'SKILL.md'), 'utf8');
   const metadata = parse(review.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)[1]);

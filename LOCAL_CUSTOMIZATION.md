@@ -19,6 +19,13 @@ Codex 加载 `C:/Users/m2694/.codex/skills/archify`。检查时，该目录的 S
 
 `customization-manifest.json` 列出定制文件和 SHA-256。更新上游时先备份并比较这些文件，不得仅复制上游 SKILL 而遗漏编辑器或强制规则。未经用户授权不得更新任何 live 安装。
 
+运行 `node scripts/assert-customization.mjs`（或更新通知回执中的 `customizationDrift`）可在更新前 fail-closed 核验哈希；存在 drift 时禁止整包覆盖 `editor/` 与定制 SKILL/强制规则。
+
+Files not listed in customization-manifest.json are treated as replaceable by upstream on update; only listed paths are protected customization surfaces.
+
+未列入 customization-manifest.json 的文件在更新时视为可被上游替换；仅清单内路径属于受保护的本地定制面。
+
+
 原始安装、被替换的源文件和检查证据保存在仓库 `.archify/repair-20261010/`。本次恢复包独立于官方 `archify.zip`，官方发布包未被冒充为本地定制版。
 
 编辑器绑定 localhost，地址只在后台 Node 进程存活时可用。非 Architecture 模式保留表单/JSON 编辑器，目前没有图形拖拽画布。

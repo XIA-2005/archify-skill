@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { pathsAlias } from '../renderers/shared/output-path.mjs';
 
 const skill = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cli = path.join(skill,'bin/archify.mjs');
@@ -21,7 +22,7 @@ if(!['architecture','workflow','sequence','dataflow','lifecycle'].includes(type)
   throw Error('Expected diagram type, candidate and HTML paths.');
 const input=path.resolve(inputArg), output=path.resolve(outputArg);
 const candidate=JSON.parse(fs.readFileSync(input,'utf8').replace(/^\uFEFF/,''));
-if(candidate.diagram_type!==type||path.resolve(candidate.meta.output)!==output)
+if(candidate.diagram_type!==type||!pathsAlias(path.resolve(candidate.meta.output),output))
   throw Error('Diagram type and meta.output must match the requested artifact.');
 const quality=flags.get('--quality')||candidate.meta.quality_profile||'showcase';
 const repoFlags=flags.has('--repo-root')?['--repo-root',path.resolve(flags.get('--repo-root'))]:[];
@@ -38,6 +39,19 @@ function run(args){
   }
   return receipt;
 }
+
+function screenshotEvidence(capture){
+  const shots=capture?.evidence?.screenshots||capture?.captures?.screenshots||[];
+  return shots.map((entry)=>({
+    path: path.resolve(entry.path || (capture?.sidecars?.directory && entry.file
+      ? path.join(capture.sidecars.directory, entry.file) : entry.file || '')),
+    width: entry.width,
+    height: entry.height,
+    theme: entry.theme,
+    ...(entry.resolvedTheme ? { resolvedTheme: entry.resolvedTheme } : {}),
+  })).filter((entry)=>entry.path && Number.isFinite(entry.width) && Number.isFinite(entry.height));
+}
+
 const finalized=run(['finalize',type,input,output,'--quality',quality,...repoFlags,'--out-dir',outDir,'--json']);
 // Every architecture uses the same visual gate, irrespective of the authoring model.
 const capture=run(['visual-check',output,'--out-dir',path.join(outDir,'visual'),'--summary','--require-provenance']);
@@ -48,7 +62,18 @@ const stdout=fs.openSync(log,'wx'),stderr=fs.openSync(errorLog,'wx');
 const child=spawn(process.execPath,[editor,input,...repoFlags],{
   cwd:process.cwd(),windowsHide:true,detached:true,stdio:['ignore',stdout,stderr]});
 fs.closeSync(stdout);fs.closeSync(stderr);
-let spawnError;child.once('error',error=>{spawnError=error;});child.unref();
+let spawnError;child.once('error',error=>{spawnError=error;});
+// Do not unref until the editor URL is reachable; on failure kill the whole Windows process tree.
+function killEditorTree(){
+  if(!child?.pid)return;
+  try{
+    if(process.platform==='win32'){
+      spawnSync('taskkill',['/PID',String(child.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});
+    }else{
+      try{process.kill(-child.pid,'SIGKILL');}catch{try{child.kill('SIGKILL');}catch{}}
+    }
+  }catch{}
+}
 let url;
 const deadline=Date.now()+20000;
 try {
@@ -64,10 +89,20 @@ try {
   if(response.status!==200)throw Error('Editor returned HTTP '+response.status);
   const loaded=await(await fetch(url+'api/spec',{signal:AbortSignal.timeout(5000)})).json();
   if(loaded.expectedHash!==inputHash)throw Error('Editor candidate does not match finalized source.');
-} catch(error){child.kill();console.log(JSON.stringify({ok:false,stage:'editor',message:error.message,finalized}));process.exit(1);}
+  child.unref();
+} catch(error){
+  killEditorTree();
+  console.log(JSON.stringify({ok:false,stage:'editor',message:error.message,editorPid:child.pid??null,finalized}));
+  process.exit(1);
+}
 const result={schemaVersion:1,ok:true,diagramType:type,source:input,
   specification:finalized.specification,artifact:finalized.artifact,gates:finalized.gates,
-  visualCapture:capture,visualReview:'pending-image-inspection',
+  visualCapture:capture,
+  // CLI ok is not human visual acceptance. Code never writes visualAcceptance/visualReview "passed".
+  visualAcceptance:'human-required',
+  visualReview:'pending-image-inspection',
+  screenshots:screenshotEvidence(capture),
+  viewports:screenshotEvidence(capture).map(({width,height,theme})=>({width,height,theme})),
   editor:{title:'Archify · 可视化编辑器',url,pid:child.pid,entry:editor,reachable:true,
     capability:type==='architecture'?'drag-text-connections-history-image-export':'schema-form-json-renderer-preview',
     availability:'Only while the local editor process is running.'},

@@ -1986,6 +1986,9 @@ export function summarizeBrowserEvidence(receipt) {
     status: receipt.status,
     evidenceKind: receipt.evidenceKind,
     visualReview: receipt.visualReview,
+    visualAcceptance: receipt.visualAcceptance
+      || (receipt.visualReview === 'pending' || receipt.visualReview === 'pending-image-inspection'
+        ? 'human-required' : 'not-applicable'),
     artifact: receipt.artifact,
     provenance: receipt.provenance,
     deliveryReceiptId: receipt.deliveryReceiptId,
@@ -2199,6 +2202,8 @@ function baseReceipt({ artifactPath, artifact, sidecars, chrome, deliveryProvena
     evidenceKind: 'automated-browser',
     status: 'fail',
     visualReview: capture ? 'pending' : 'not-requested',
+    // Automated ok never means human acceptance; code never writes "passed".
+    visualAcceptance: capture ? 'human-required' : 'not-applicable',
     ...(deliveryProvenance ? {
       provenance: deliveryProvenance.status,
       ...(deliveryProvenance.receiptId ? { deliveryReceiptId: deliveryProvenance.receiptId } : {}),
@@ -2379,6 +2384,7 @@ async function runBrowserEvidence({
     throw regularFileCaptureError('The visual-check artifact', capturedArtifact);
   }
   const artifactBytes = capturedArtifact.content.buffer;
+  let ownership;
   try {
   const outputs = evidenceSidecarPaths(artifact, { outDir, command, capture });
   const directory = resolveSidecarDirectory(artifact, outputs, compareSidecarParents);
@@ -2400,7 +2406,7 @@ async function runBrowserEvidence({
     receipt.diagnostics = [preflight.diagnostic];
     return { exitCode: EXIT.fail, receipt };
   }
-  const ownership = preflight.ownership;
+  ownership = preflight.ownership;
   let inspectionArtifact;
   try {
     // Chrome's file loader cannot reliably open long Windows/UNC paths. Keep
@@ -2442,6 +2448,7 @@ async function runBrowserEvidence({
   } catch (error) {
     return { exitCode: EXIT.fail, receipt: persistBrowserEvidenceFailure(artifact, {
       schemaVersion: 1, command, evidenceKind: 'automated-browser', visualReview: capture ? 'pending' : 'not-requested',
+      visualAcceptance: capture ? 'human-required' : 'not-applicable',
       artifact: { path: artifact, sha256: sha256(artifactBytes), bytes: artifactBytes.byteLength },
       provenance: error.deliveryProvenance?.status, error: error.message,
       diagnostics: error.archifyDiagnostics || [],
@@ -2649,7 +2656,21 @@ async function runBrowserEvidence({
     if (browser?.close) await browser.close();
   }
   } finally {
-    releaseRegularFileBinding(capturedArtifact.binding);
+    try {
+      releaseRegularFileBinding(capturedArtifact.binding);
+    } finally {
+      // Also retire private snapshots when setup/Chrome resolution throws before
+      // the publication transaction starts. Changed claimants remain preserved.
+      if (ownership?.active) {
+        const errors = cleanupStagedEvidence(ownership, { removeDirectory: true });
+        ownership.active = false;
+        if (errors.length) {
+          const error = new Error('visual-check could not safely clean its staging directories.');
+          error.cleanupErrors = errors;
+          throw error;
+        }
+      }
+    }
   }
 }
 

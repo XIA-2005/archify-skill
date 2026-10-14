@@ -111,7 +111,12 @@ export function removeEmptyDirectoryWithRetry(directory, { retry = true } = {}) 
       // SMB can acknowledge unlink before a following directory removal sees
       // the deleted entry disappear. Retrying rmdir is claimant-safe: a real
       // entry keeps the directory non-empty and is never removed recursively.
-      if (error?.code !== 'ENOTEMPTY' || attempt === attempts - 1) break;
+      // Visual-check's own private staging directories may also report a
+      // transient Windows sharing violation (EBUSY/EPERM) while handles drain.
+      const ownStaging = /^\.archify-visual-check-/u.test(path.basename(String(directory)));
+      const transient = error?.code === 'ENOTEMPTY'
+        || (ownStaging && (error?.code === 'EBUSY' || error?.code === 'EPERM'));
+      if (!transient || attempt === attempts - 1) break;
       Atomics.wait(
         removalCleanupSignal,
         0,

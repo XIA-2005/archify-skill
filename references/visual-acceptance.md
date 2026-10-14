@@ -17,6 +17,12 @@ Identical typed JSON and renderer produce deterministic geometry. Model choice c
 
 After a passing `finalize`, call `node bin/archify.mjs visual-check <html> --out-dir <fresh-evidence-folder> --summary --require-provenance`. Inspect the actual **1440x900** light (and preferably dark) PNG, plus 2048x1320 for complex diagrams. The capture receipt `ok:true` merely proves browser/capture checks completed. It **does not** constitute human visual review.
 
+## CLI ok is not visual acceptance
+
+Receipt fields `ok: true`, a passing `finalize`, and `visualReview: "pending"` / `"pending-image-inspection"` only prove automated gates/capture completed. They never mean a human accepted the composition.
+
+Deliver and visual-check receipts set `visualAcceptance: "human-required"`. **Code never writes `visualAcceptance: "passed"` or `visualReview: "passed"`.** Only an agent that actually opened the screenshots may report `visual_review: passed` in the final reply, and that reply must cite the absolute screenshot paths (light and dark when present) and the viewport sizes from the receipt.
+
 Inspect in this order:
 
 | Dimension | Acceptance question | Measurement / repair trigger |
