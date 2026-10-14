@@ -29,7 +29,9 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
   const browser = new ChromeVisualBrowser(chrome);
   t.after(() => browser.close());
   const session = await browser.sessionPromise;
-  const send = (method, params = {}) => browser.cdp.send(method, params, session);
+  // Native 10x exports and all 300 decoded 50 FPS frames can exceed CDP's
+  // ordinary 15s transport timeout on software-rendered or busy machines.
+  const send = (method, params = {}) => browser.cdp.send(method, params, session, 120000);
   await browser.cdp.send('Browser.setDownloadBehavior', { behavior: 'deny' });
   await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   async function run(expression) {
@@ -46,6 +48,12 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     window.alert=message=>exportAlerts.push(message);
     console.error=(...args)=>exportConsole.push(args.map(String).join(' '));
     window.exportUrls=new Map();window.exportDownloads=[];window.exportTracks=[];window.exportCancelled=[];
+    window.exportWorkers=[];window.exportWorkerStops=0;
+    const NativeWorker=window.Worker;
+    if(NativeWorker)window.Worker=class extends NativeWorker{constructor(...args){super(...args);exportWorkers.push(this);}terminate(){exportWorkerStops++;return super.terminate();}};
+    window.exportBitmaps=[];
+    const bitmapNative=window.createImageBitmap;
+    if(bitmapNative)window.createImageBitmap=(...args)=>bitmapNative(...args).then(bitmap=>{exportBitmaps.push(bitmap);return bitmap;});
     const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);
     URL.createObjectURL=blob=>{const url=create(blob);exportUrls.set(url,{blob,revoked:false});return url;};
     URL.revokeObjectURL=url=>{const item=exportUrls.get(url);if(item)item.revoked=true;revoke(url);};
@@ -238,7 +246,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     for (const fault of ['image','context','null-blob']) {
       await load();
       await run(`window.savedImage=Image;window.savedContext=HTMLCanvasElement.prototype.getContext;window.savedToBlob=HTMLCanvasElement.prototype.toBlob;`);
-      if (fault === 'image') await run(`window.Image=class {set src(value){queueMicrotask(()=>this.onerror(new Error('image failed')));}}`);
+      if (fault === 'image') await run(`window.Image=class {removeAttribute(){} set src(value){queueMicrotask(()=>this.onerror(new Error('image failed')));}}`);
       if (fault === 'context') await run('HTMLCanvasElement.prototype.getContext=()=>null');
       if (fault === 'null-blob') await run('HTMLCanvasElement.prototype.toBlob=function(callback){callback(null)}');
       await run(`Archify.exportMenu.run('png')`);
@@ -252,6 +260,54 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     await load();
     const sync = await run(`(()=>{const svg=document.querySelector('.diagram-container > svg'),clone=svg.cloneNode;svg.cloneNode=()=>{throw new Error('sync serialization')};try{Archify.exportMenu.run('svg');return false;}catch(e){return e.message==='sync serialization';}finally{svg.cloneNode=clone;}})()`);
     assert.equal(sync,true);assert.deepEqual((await record('svg-sync-throw')).receipt,{});
+  });
+
+  await t.test('exports unload decoded images and canvas backing stores on success and failure', async () => {
+    for (const format of ['png','jpeg','gif','webm']) {
+      for (const fail of [false,true]) {
+        await load();
+        await run(`(()=>{window.resourceImages=[];window.resourceCanvases=[];window.peakReadBytes=0;
+          const NativeImage=Image;window.Image=function(){const image=new NativeImage();resourceImages.push(image);return image;};
+          const create=document.createElement.bind(document);document.createElement=function(tag,...args){const element=create(tag,...args);if(tag==='canvas')resourceCanvases.push(element);return element;};
+          const read=CanvasRenderingContext2D.prototype.getImageData;CanvasRenderingContext2D.prototype.getImageData=function(...args){peakReadBytes=Math.max(peakReadBytes,args[2]*args[3]*4);return read.apply(this,args);};})()`);
+        if(fail) await run(`CanvasRenderingContext2D.prototype.drawImage=()=>{throw Error('resource cleanup fault')};`);
+        await run(`Archify.exportMenu.run('${format}',{duration:250,fps:8,scale:1})`);
+        const resources=await run(`({images:resourceImages.map(i=>[i.getAttribute('src'),i.onload,i.onerror]),canvases:resourceCanvases.map(c=>[c.width,c.height])})`);
+        assert.ok(resources.images.length > 0);
+        assert.ok(resources.images.every(i=>i.every(v=>v===null)),`${format} ${fail}: decoded sources and handlers released: ${JSON.stringify(resources)}`);
+        assert.ok(resources.canvases.every(c=>c.every(v=>v===0) || (c[0]<=300 && c[1]<=150)),`${format} ${fail}: export canvas backing stores released: ${JSON.stringify(resources)}`);
+        assert.equal(await run('exportWorkerStops===exportWorkers.length'),true,`${format} ${fail}: background worker terminated`);
+        assert.equal(await run('exportBitmaps.every(b=>b.width===0&&b.height===0)'),true,`${format} ${fail}: native bitmaps closed or transferred`);
+      }
+    }
+  });
+
+  await t.test('GIF background worker and cooperative fallbacks produce identical bytes and terminate', async () => {
+    for (const transparent of [false,true]) {
+      await load();
+      const checksums=await run(`(async()=>{
+        const Native=Worker,NativeOffscreen=OffscreenCanvas,checksums=[];
+        for(const mode of ['worker','canvas-fallback','attach-blocked','missing','blocked','startup']){
+          window.OffscreenCanvas=mode==='canvas-fallback'?undefined:NativeOffscreen;
+          window.Worker=mode==='worker'||mode==='canvas-fallback'?Native:mode==='attach-blocked'?class extends Native{postMessage(job,...args){if(job.method==='attach'){queueMicrotask(()=>this.onmessage({data:{id:job.id,error:'offscreen blocked'}}));return;}return super.postMessage(job,...args);}}:mode==='missing'?undefined:mode==='startup'?class extends Native{constructor(...args){super(...args);queueMicrotask(()=>this.onerror?.({message:'startup blocked',preventDefault(){}}));}}:class{constructor(){throw Error('worker blocked')}};
+          const blob=await Archify.motion.recordGif({duration:250,fps:8,scale:1,transparentBackground:${transparent}});
+          checksums.push({mode,encoder:document.documentElement.getAttribute('data-gif-encoder'),hash:Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer()))).map(n=>n.toString(16).padStart(2,'0')).join('')});
+        }
+        window.Worker=Native;window.OffscreenCanvas=NativeOffscreen;
+        return checksums;
+      })()`);
+      assert.equal(checksums[0].encoder,'offscreen-worker');
+      assert.equal(checksums[1].encoder,'worker');
+      assert.equal(checksums[2].encoder,'worker');
+      assert.ok(checksums.slice(1).every(c=>c.hash===checksums[0].hash));
+      assert.ok(checksums.slice(3).every(c=>c.encoder==='cooperative'));
+      assert.equal(await run('exportWorkerStops===exportWorkers.length'),true);
+      assert.equal(await run('[...exportUrls.values()].every(u=>u.revoked)'),true);
+    }
+    await load();
+    const failure=await run(`(async()=>{const Native=Worker;window.Worker=class extends Native{postMessage(job,...args){if(job.method==='frame'){queueMicrotask(()=>this.onerror({message:'worker encoding fault',preventDefault(){}}));return;}return super.postMessage(job,...args);}};try{await Archify.motion.recordGif({duration:250,fps:8,scale:1});return '';}catch(error){return error.message;}finally{window.Worker=Native;}})()`);
+    assert.equal(failure,'worker encoding fault');
+    assert.equal(await run('exportWorkerStops===exportWorkers.length&&[...exportUrls.values()].every(u=>u.revoked)'),true);
   });
 
   await t.test('standalone SVG keeps intrinsic dimensions without changing Viewer or raster sizing', async () => {
@@ -489,9 +545,40 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
         assert.match(await run('exportAlerts.at(-1)'),/lower scale/);
       }
     }
-    // Motion retains its smaller per-frame budget.
-    await run(`document.querySelector('.diagram-container svg').setAttribute('viewBox','0 0 900 300');Archify.exportMenu.run('gif',{scale:10})`);
-    assert.equal(await run("document.documentElement.getAttribute('data-last-export-error-format')"),'gif');
+    // WebM retains its smaller per-frame/codec budget.
+    await run(`document.querySelector('.diagram-container svg').setAttribute('viewBox','0 0 900 300');Archify.exportMenu.run('webm',{scale:10})`);
+    assert.equal(await run("document.documentElement.getAttribute('data-last-export-error-format')"),'webm');
+  });
+
+  await t.test('GIF exports at 5x, 7x and 10x beyond legacy motion limits without reducing resolution', async () => {
+    // Readback allocation must stay bounded; export resolution stays native.
+    await load();
+    await run(`document.querySelector('.diagram-container svg').setAttribute('viewBox','0 0 1080 800')`);
+    for (const [scale,transparent] of [[5,false],[7,false],[10,false],[10,true]]) {
+      await run(`(()=>{window.largeGifError=null;window.largeGif=null;window.gifReadBytes=0;const nativeRead=CanvasRenderingContext2D.prototype.getImageData;CanvasRenderingContext2D.prototype.getImageData=function(...args){gifReadBytes=Math.max(gifReadBytes,args[2]*args[3]*4);return nativeRead.apply(this,args);};void Archify.motion.recordGif({scale:${scale},duration:250,fps:8,transparentBackground:${transparent}}).then(b=>largeGif=b,e=>largeGifError=e.message).finally(()=>CanvasRenderingContext2D.prototype.getImageData=nativeRead);})()`);
+      for(let retry=0;retry<120;retry++) {
+        if(await run('!!largeGif||!!largeGifError'))break;
+        await new Promise(resolve=>setTimeout(resolve,500));
+      }
+      assert.equal(await run('largeGifError'),null);
+      assert.equal(await run('!!largeGif'),true);
+      assert.ok(await run('(()=>{const bytes=Number(document.documentElement.getAttribute("data-gif-readback-bytes"))||gifReadBytes;return bytes>0&&bytes<=4*1024*1024;})()'), 'native GIF readbacks stay within 4 MiB');
+      const result=await run(`(async()=>{const decoder=new ImageDecoder({data:await largeGif.arrayBuffer(),type:'image/gif'});await decoder.tracks.ready;const count=decoder.tracks.selectedTrack.frameCount;const canvas=document.createElement('canvas');canvas.width=540;canvas.height=400;const ctx=canvas.getContext('2d');let previous=null,changed=0;const alphas=[],dimensions=[];for(let i=0;i<count;i++){const {image}=await decoder.decode({frameIndex:i});dimensions.push([image.displayWidth,image.displayHeight]);ctx.clearRect(0,0,540,400);ctx.drawImage(image,0,0,540,400);const pixels=ctx.getImageData(0,0,540,400).data;alphas.push(ctx.getImageData(5,5,50,20).data.filter((_,i)=>i%4===3).every(a=>a===0));if(previous)for(let p=0;p<pixels.length;p+=4)if(pixels[p]!==previous[p]||pixels[p+1]!==previous[p+1]||pixels[p+2]!==previous[p+2]||pixels[p+3]!==previous[p+3])changed++;previous=pixels;image.close();}decoder.close();return {dimensions,count,changed,alphas,type:largeGif.type};})()`);
+      assert.equal(result.type,'image/gif');assert.equal(result.count,2);
+      assert.ok(result.changed>10,JSON.stringify(result));
+      assert.deepEqual(result.dimensions,Array.from({length:2},()=>[1080*scale,800*scale]));
+      assert.deepEqual(result.alphas,[transparent,transparent]);
+      if(evidence) {
+        const url=await run(`new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsDataURL(largeGif);})`);
+        fs.writeFileSync(path.join(evidence,`native-${scale}x-${transparent?'transparent':'opaque'}.gif`),Buffer.from(url.split(',')[1],'base64'));
+      }
+      records.push({name:'large-native-gif',scale,transparent,...result});
+      await run('largeGif=null');
+    }
+    for(const bounds of ['0 0 3300 100','0 0 1700 1700']) {
+      await run(`document.querySelector('.diagram-container svg').setAttribute('viewBox','${bounds}')`);
+      assert.equal(await run(`Archify.motion.recordGif({scale:10}).then(()=>false,e=>/lower scale/.test(e.message))`),true);
+    }
   });
 
   await t.test('transparent WebM decodes actual alpha and motion with bounded encoder cleanup', async () => {
@@ -547,6 +634,45 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
       return {message,closed,revoked:[...exportUrls.values()].every(u=>u.revoked),errors:exportErrors};
     })()`);
     assert.deepEqual(cleanup, { message: 'alpha configure fault', closed: 2, revoked: true, errors: [] });
+  });
+
+  await t.test('50 FPS GIF keeps all 300 timed frames, late motion and exact cropped-frame pixels including alpha', async () => {
+    const production = fs.readFileSync(file, 'utf8');
+    const fullFrame = production.replace(/else \{(\s+left = width; top = height; right = bottom = -1;)/, 'else if (false) {$1');
+    assert.ok(fullFrame !== production, 'full-frame reference disables only rectangle cropping');
+    const observations = [];
+    for (const transparent of [false, true]) {
+      for (const reference of [false, true]) {
+        fs.writeFileSync(file, reference ? fullFrame : production);
+        await load({theme:'light'});
+        const result = await run(`(async()=>{
+          const blob=await Archify.motion.recordGif({duration:6000,fps:50,transparentBackground:${transparent},scale:1});
+          const bytes=await blob.arrayBuffer(), decoder=new ImageDecoder({data:bytes,type:'image/gif'});
+          await decoder.tracks.ready;
+          const hashes=[],delays=[];let last='',lateChanges=0;
+          const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+          for(let i=0;i<decoder.tracks.selectedTrack.frameCount;i++){
+            const {image}=await decoder.decode({frameIndex:i});
+            canvas.width=image.displayWidth;canvas.height=image.displayHeight;
+            ctx.drawImage(image,0,0);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+            const digest=await crypto.subtle.digest('SHA-256',pixels);
+            const hash=Array.from(new Uint8Array(digest)).map(n=>n.toString(16).padStart(2,'0')).join('');
+            if(i>=200&&last!==hash)lateChanges++;
+            hashes.push(hash);delays.push(image.duration);last=hash;image.close();
+          }
+          decoder.close();return {hashes,delays,lateChanges,bytes:blob.size};
+        })()`);
+        assert.equal(result.hashes.length,300);
+        assert.ok(result.delays.every(d=>d===20000),'every 50 FPS frame lasts exactly 20 ms');
+        assert.ok(result.lateChanges>90,'flow keeps moving in the final two seconds');
+        observations.push({transparent,reference,...result});
+      }
+      const [cropped,full]=observations.slice(-2);
+      assert.deepEqual(cropped.hashes,full.hashes,'all decoded RGBA pixels equal the full-frame reference');
+      assert.ok(cropped.bytes<full.bytes,'changed rectangles reduce playback data without losing frames');
+    }
+    fs.writeFileSync(file,production);
+    records.push({kind:'gif-50-fps',observations});
   });
 
   await t.test('GIF menu frame rate changes decoded frames and preserves duration, transparency and keyboard selection', async () => {
@@ -620,7 +746,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     assert.equal(state.receipt['data-last-export-format'],'gif');assert.ok(state.downloads[0].name.endsWith('.gif'));
     assert.equal(await run(`(async()=>{const decoder=new ImageDecoder({data:await exportDownloads[0].blob.arrayBuffer(),type:'image/gif'});await decoder.tracks.ready;const count=decoder.tracks.selectedTrack.frameCount;decoder.close();return count;})()`),72);
     await load();
-    const failed=await run(`(async()=>{const native=CanvasRenderingContext2D.prototype.getImageData;CanvasRenderingContext2D.prototype.getImageData=()=>{throw Error('gif pixels unavailable');};let message='';try{await Archify.motion.recordGif({duration:250});}catch(e){message=e.message;}finally{CanvasRenderingContext2D.prototype.getImageData=native;}await new Promise(r=>setTimeout(r,0));return {message,revoked:[...exportUrls.values()].every(u=>u.revoked)};})()`);
+    const failed=await run(`(async()=>{const native=CanvasRenderingContext2D.prototype.getImageData,offscreen=OffscreenCanvas;window.OffscreenCanvas=undefined;CanvasRenderingContext2D.prototype.getImageData=()=>{throw Error('gif pixels unavailable');};let message='';try{await Archify.motion.recordGif({duration:250});}catch(e){message=e.message;}finally{CanvasRenderingContext2D.prototype.getImageData=native;window.OffscreenCanvas=offscreen;}await new Promise(r=>setTimeout(r,0));return {message,revoked:[...exportUrls.values()].every(u=>u.revoked)};})()`);
     assert.deepEqual(failed,{message:'gif pixels unavailable',revoked:true});
   });
 

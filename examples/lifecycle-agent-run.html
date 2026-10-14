@@ -6291,11 +6291,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       // pixel count fits under this cap; a figure too large even at 1x is
       // downscaled to fit rather than allocating an oversized canvas.
       var MAX_CANVAS_PIXELS = 16 * 1024 * 1024;
-      // Explicit still-image exports are opt-in high-resolution allocations.
+      // Explicit still-image and GIF exports are opt-in high-resolution allocations.
       // Do not apply the conservative automatic/mobile or motion-frame budget
       // to them. Browser allocation/encoding failures still propagate normally.
-      var MAX_STILL_PIXELS = 256 * 1024 * 1024;
-      var MAX_STILL_SIDE = 32767;
+      var MAX_EXPLICIT_RASTER_PIXELS = 256 * 1024 * 1024;
+      var MAX_EXPLICIT_RASTER_SIDE = 32767;
 
       function pickSafeScale(vbW, vbH) {
         for (var s = RASTER_SCALE; s >= 1; s--) {
@@ -6304,14 +6304,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         return Math.sqrt(MAX_CANVAS_PIXELS / (vbW * vbH)) * 0.999;
       }
 
-      function exportScale(options, fallback, width, height, stillImage) {
+      function exportScale(options, fallback, width, height, highResolution) {
         if (!options || options.scale == null || options.scale === 'auto') return fallback;
         var scale = Number(options.scale);
         if ([1, 3, 5, 7, 10].indexOf(scale) === -1) {
           var invalid = exportError('viewer.export.error.scale'); invalid.archifyExportSize = true; throw invalid;
         }
-        var pixelLimit = stillImage ? MAX_STILL_PIXELS : MAX_CANVAS_PIXELS;
-        var sideLimit = stillImage ? MAX_STILL_SIDE : 8192;
+        var pixelLimit = highResolution ? MAX_EXPLICIT_RASTER_PIXELS : MAX_CANVAS_PIXELS;
+        var sideLimit = highResolution ? MAX_EXPLICIT_RASTER_SIDE : 8192;
         var targetWidth = Math.ceil(width * scale);
         var targetHeight = Math.ceil(height * scale);
         if (!Number.isFinite(targetWidth) || !Number.isFinite(targetHeight) ||
@@ -6443,9 +6443,18 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         return new Promise(function (resolve, reject) {
           var img = new Image();
+          var canvas;
+          function finish(error, blob) {
+            img.onload = img.onerror = null;
+            img.removeAttribute('src');
+            URL.revokeObjectURL(svgUrl);
+            if (canvas) canvas.width = canvas.height = 0;
+            canvas = null;
+            if (error) reject(error); else resolve(blob);
+          }
           img.onload = function () {
             try {
-              var canvas = document.createElement('canvas');
+              canvas = document.createElement('canvas');
               canvas.width = Math.round(layout.width * scale);
               canvas.height = Math.round(layout.height * scale);
               var ctx = canvas2dOrThrow(canvas, format);
@@ -6460,20 +6469,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
                          format === 'webp' ? 'image/webp' : 'image/png';
               var quality = format === 'png' ? undefined : 0.95;
               canvas.toBlob(function (blob) {
-                canvas.width = canvas.height = 0;
-                if (!blob) reject(exportError('viewer.export.error.toBlobNull', { label: format }));
-                else resolve(blob);
+                finish(blob ? null : exportError('viewer.export.error.toBlobNull', { label: format }), blob);
               }, mime, quality);
             } catch (error) {
-              URL.revokeObjectURL(svgUrl);
-              reject(error);
+              finish(error);
             }
           };
           img.onerror = function (e) {
-            URL.revokeObjectURL(svgUrl);
-            reject(e);
+            finish(e);
           };
-          img.src = svgUrl;
+          try { img.src = svgUrl; } catch (error) { finish(error); }
         });
       }
 
@@ -6675,14 +6680,20 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       // GIF89a: global adaptive palette, LZW, loop extension and full-frame
       // restore-to-background disposal. Transparency is binary, as defined by
       // https://giflib.sourceforge.net/gifstandard/GIF89a.html.
-      async function encodeGif(canvas, paint, duration, fps, transparent) {
-        var ctx = canvas2dOrThrow(canvas, 'gif');
-        var histogram = new Map();
-        for (var sample = 0; sample < 8; sample++) {
-          paint(sample * duration / 8000);
-          var pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-          var stride = Math.max(1, Math.floor(canvas.width * canvas.height / 60000));
-          for (var p = 0; p < pixels.length; p += stride * 4) {
+      // This self-contained session runs in a disposable Worker when available.
+      // The fallback uses the same bytes and cooperatively yields its long loops.
+      function createGifSession(width, height, duration, fps, transparent, cooperative) {
+        var histogram = new Map(), lookup, indices, parts, baseline;
+        var count = Math.max(2, Math.round(duration * fps / 1000));
+        var stride = Math.max(1, Math.floor(width * height / 60000));
+        var yieldAt = performance.now();
+        async function yieldWhenDue() {
+          if (performance.now() - yieldAt < 8) return;
+          await new Promise(function (resolve) { setTimeout(resolve, 0); });
+          yieldAt = performance.now();
+        }
+        function sample(pixels, offset) {
+          for (var p = (Math.ceil(offset / stride) * stride - offset) * 4; p < pixels.length; p += stride * 4) {
             if (pixels[p + 3] < 128) continue;
             var key = (pixels[p] >> 3) * 1024 + (pixels[p + 1] >> 3) * 32 + (pixels[p + 2] >> 3);
             var cell = histogram.get(key);
@@ -6690,6 +6701,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             cell[0] += pixels[p]; cell[1] += pixels[p + 1]; cell[2] += pixels[p + 2]; cell[3]++;
           }
         }
+        async function prepare() {
         var colors = Array.from(histogram.values()).map(function (c) {
           return [c[0] / c[3], c[1] / c[3], c[2] / c[3], c[3]];
         });
@@ -6721,7 +6733,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           b.entries.forEach(function (c) { for (var axis = 0; axis < 3; axis++) sum[axis] += c[axis] * c[3]; sum[3] += c[3]; });
           for (var axis = 0; axis < 3; axis++) palette[(i + 1) * 3 + axis] = Math.round(sum[axis] / sum[3]);
         });
-        var lookup = new Uint8Array(32768);
+        lookup = new Uint8Array(32768);
         for (var key = 0; key < lookup.length; key++) {
           var r = (key >> 10) * 8 + 4, g = ((key >> 5) & 31) * 8 + 4, b = (key & 31) * 8 + 4;
           var nearest = 1, distance = Infinity;
@@ -6731,17 +6743,43 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             if (d < distance) { distance = d; nearest = c; }
           }
           lookup[key] = nearest;
+          if (cooperative && (key & 127) === 0) await yieldWhenDue();
+        }
+
+          parts = ['GIF89a', new Uint8Array(word(width).concat(word(height), [247, 0, 0])), palette,
+            new Uint8Array([33, 255, 11]), 'NETSCAPE2.0', new Uint8Array([3, 1, 0, 0, 0])];
+          indices = new Uint8Array(width * height);
+          histogram.clear();
         }
         function word(n) { return [n & 255, (n >> 8) & 255]; }
-        function lzw(indices) {
-          var out = [], bits = 0, buffer = 0, width = 9, next = 258, dictionary = new Map();
+        async function lzw(indices) {
+          // Write GIF subblocks directly into typed chunks instead of keeping
+          // two growing JS number arrays plus their final typed copy alive.
+          var chunks = [], chunk = new Uint8Array(65536), used = 0;
+          var block = new Uint8Array(255), blockSize = 0;
+          function byte(value) {
+            if (used === chunk.length) { chunks.push(chunk); chunk = new Uint8Array(65536); used = 0; }
+            chunk[used++] = value;
+          }
+          function flushBlock() {
+            byte(blockSize);
+            for (var j = 0; j < blockSize; j++) byte(block[j]);
+            blockSize = 0;
+          }
+          function packed(value) {
+            block[blockSize++] = value;
+            if (blockSize === 255) flushBlock();
+          }
+          byte(8);
+          var bits = 0, buffer = 0, width = 9, next = 258, dictionary = new Map();
           function emit(code) {
             buffer |= code << bits; bits += width;
-            while (bits >= 8) { out.push(buffer & 255); buffer >>>= 8; bits -= 8; }
+            while (bits >= 8) { packed(buffer & 255); buffer >>>= 8; bits -= 8; }
           }
           emit(256);
           var prefix = indices[0];
           for (var i = 1; i < indices.length; i++) {
+            if (cooperative && (i & 65535) === 0) await yieldWhenDue();
             var pair = prefix * 256 + indices[i], found = dictionary.get(pair);
             if (found !== undefined) { prefix = found; continue; }
             emit(prefix);
@@ -6752,34 +6790,196 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             prefix = indices[i];
           }
           emit(prefix); emit(257);
-          if (bits) out.push(buffer & 255);
-          var data = [8];
-          for (var i = 0; i < out.length; i += 255) {
-            data.push(Math.min(255, out.length - i));
-            for (var j = i; j < Math.min(i + 255, out.length); j++) data.push(out[j]);
-          }
-          data.push(0); return new Uint8Array(data);
+          if (bits) packed(buffer & 255);
+          if (blockSize) flushBlock();
+          byte(0); chunks.push(chunk.subarray(0, used));
+          return new Blob(chunks);
         }
-        var parts = ['GIF89a', new Uint8Array(word(canvas.width).concat(word(canvas.height), [247, 0, 0])), palette,
-          new Uint8Array([33, 255, 11]), 'NETSCAPE2.0', new Uint8Array([3, 1, 0, 0, 0])];
-        var count = Math.max(2, Math.round(duration * fps / 1000));
-        var indices = new Uint8Array(canvas.width * canvas.height);
-        for (var frame = 0; frame < count; frame++) {
-          paint(frame * duration / count / 1000);
-          var pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-          for (var i = 0; i < indices.length; i++) {
+
+        function pixels(pixels, offset) {
+          for (var i = 0; i < pixels.length / 4; i++) {
             var p = i * 4;
-            indices[i] = transparent && pixels[p + 3] < 128 ? 0 : lookup[(pixels[p] >> 3) * 1024 + (pixels[p + 1] >> 3) * 32 + (pixels[p + 2] >> 3)];
+            indices[offset + i] = transparent && pixels[p + 3] < 128 ? 0 : lookup[(pixels[p] >> 3) * 1024 + (pixels[p + 1] >> 3) * 32 + (pixels[p + 2] >> 3)];
           }
-          var delay = Math.max(1, Math.round((frame + 1) * duration / count / 10) - Math.round(frame * duration / count / 10));
-          parts.push(new Uint8Array([33, 249, 4, 8 | (transparent ? 1 : 0)].concat(word(delay), [0, 0])));
-          parts.push(new Uint8Array([44, 0, 0, 0, 0].concat(word(canvas.width), word(canvas.height), [0])));
-          parts.push(lzw(indices));
-          // Yield between frames so the export page continues to respond.
-          await new Promise(function (resolve) { setTimeout(resolve, 0); });
         }
-        parts.push(new Uint8Array([59]));
-        return new Blob(parts, { type: 'image/gif' });
+        async function frame(frame) {
+          var delay = Math.max(1, Math.round((frame + 1) * duration / count / 10) - Math.round(frame * duration / count / 10));
+          // The first, still frame is the persistent native-resolution base.
+          // Later frames restore only their changed rectangle to that base.
+          // This also erases transparent motion without retaining old trails.
+          var left = 0, top = 0, right = width - 1, bottom = height - 1;
+          if (frame === 0) baseline = indices.slice();
+          else {
+            left = width; top = height; right = bottom = -1;
+            for (var p = 0; p < indices.length; p++) {
+              if (indices[p] !== baseline[p]) {
+                var x = p % width, y = Math.floor(p / width);
+                left = Math.min(left, x); right = Math.max(right, x);
+                top = Math.min(top, y); bottom = Math.max(bottom, y);
+              }
+              if (cooperative && (p & 65535) === 0) await yieldWhenDue();
+            }
+            if (right < left) left = top = right = bottom = 0;
+          }
+          var w = right - left + 1, h = bottom - top + 1, patch = indices;
+          if (frame !== 0) {
+            patch = new Uint8Array(w * h);
+            for (var row = 0; row < h; row++) {
+              patch.set(indices.subarray((top + row) * width + left, (top + row) * width + left + w), row * w);
+              if (cooperative && (row & 31) === 0) await yieldWhenDue();
+            }
+          }
+          parts.push(new Uint8Array([33, 249, 4, (frame === 0 ? 4 : 12) | (transparent ? 1 : 0)].concat(word(delay), [0, 0])));
+          parts.push(new Uint8Array([44].concat(word(left), word(top), word(w), word(h), [0])));
+          parts.push(await lzw(patch));
+        }
+        function finish() {
+          parts.push(new Uint8Array([59]));
+          var result = new Blob(parts, { type: 'image/gif' });
+          parts = indices = lookup = baseline = null;
+          return result;
+        }
+        return { sample: sample, prepare: prepare, pixels: pixels, frame: frame, finish: finish };
+      }
+
+      function gifWorkerMain() {
+        var session, canvas, ctx, bitmap, scene, maxReadBytes = 0;
+        function disposeDrawing() {
+          if (bitmap) bitmap.close();
+          if (canvas) canvas.width = canvas.height = 0;
+          bitmap = canvas = ctx = scene = null;
+        }
+        self.onmessage = async function (event) {
+          var job = event.data;
+          try {
+            var value;
+            if (job.method === 'init') session = createGifSession.apply(null, job.args.concat(false));
+            else if (job.method === 'attach') {
+              bitmap = job.args[0]; scene = job.args[1];
+              canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+              ctx = canvas.getContext('2d', { willReadFrequently: true });
+              if (!ctx) throw new Error('GIF offscreen context unavailable');
+            } else if (job.method === 'render') {
+              drawMotionFrame(ctx, bitmap, scene, job.args[0]);
+              var rows = Math.max(1, Math.floor(1024 * 1024 / canvas.width));
+              for (var y = 0; y < canvas.height; y += rows) {
+                var pixels = ctx.getImageData(0, y, canvas.width, Math.min(rows, canvas.height - y)).data;
+                maxReadBytes = Math.max(maxReadBytes, pixels.byteLength);
+                session[job.args[1]](pixels, y * canvas.width);
+                pixels = null;
+              }
+              value = maxReadBytes;
+            } else value = await session[job.method].apply(null, job.args);
+            if (job.method === 'finish') disposeDrawing();
+            self.postMessage({ id: job.id, value: value });
+          } catch (error) {
+            if (job.method === 'attach') disposeDrawing();
+            self.postMessage({ id: job.id, error: error.message || String(error) });
+          }
+        };
+      }
+
+      async function encodeGif(canvas, paint, duration, fps, transparent, workerMotion) {
+        var ctx = canvas2dOrThrow(canvas, 'gif');
+        var width = canvas.width, height = canvas.height;
+        var worker, workerUrl, local, offscreen = false, sequence = 0, pending = new Map();
+        function fail(error) {
+          pending.forEach(function (job) { job.reject(error); });
+          pending.clear();
+        }
+        try {
+          if (typeof Worker === 'function') {
+            workerUrl = URL.createObjectURL(new Blob([
+              createGifSession.toString(),
+              '\n', workerMotion ? workerMotion.source : '', '\n(', gifWorkerMain.toString(), ')();'
+            ], { type: 'text/javascript' }));
+            try { worker = new Worker(workerUrl); }
+            catch (_) { URL.revokeObjectURL(workerUrl); workerUrl = null; }
+          }
+          if (worker) {
+            worker.onmessage = function (event) {
+              var job = pending.get(event.data.id);
+              if (!job) return;
+              pending.delete(event.data.id);
+              if (event.data.error) job.reject(new Error(event.data.error)); else job.resolve(event.data.value);
+            };
+            worker.onerror = function (event) { event.preventDefault(); fail(new Error(event.message || 'GIF worker failed')); };
+            worker.onmessageerror = function () { fail(new Error('GIF worker message failed')); };
+          } else local = createGifSession(canvas.width, canvas.height, duration, fps, transparent, true);
+          document.documentElement.setAttribute('data-gif-encoder', worker ? 'worker' : 'cooperative');
+          function call(method, args, transfer) {
+            if (!worker) return Promise.resolve(method === 'init' ? undefined : local[method].apply(null, args));
+            return new Promise(function (resolve, reject) {
+              var id = ++sequence;
+              pending.set(id, { resolve: resolve, reject: reject });
+              try { worker.postMessage({ id: id, method: method, args: args }, transfer || []); }
+              catch (error) { pending.delete(id); reject(error); }
+            });
+          }
+          // Transfer one <=4 MiB strip at a time. Worker replies provide event
+          // loop boundaries so Route timers and camera frames run during export.
+          var rows = Math.max(1, Math.floor(1024 * 1024 / canvas.width));
+          var yieldedAt = performance.now();
+          async function readRows(method) {
+            for (var y = 0; y < canvas.height; y += rows) {
+              var pixels = ctx.getImageData(0, y, canvas.width, Math.min(rows, canvas.height - y)).data;
+              await call(method, [pixels, y * canvas.width], [pixels.buffer]);
+              pixels = null;
+              if (performance.now() - yieldedAt > 8) {
+                await new Promise(function (resolve) { setTimeout(resolve, 0); });
+                yieldedAt = performance.now();
+              }
+            }
+          }
+          try { await call('init', [canvas.width, canvas.height, duration, fps, transparent]); }
+          catch (error) {
+            // A shell may accept the constructor but block Blob workers at
+            // startup. No pixels have been sampled yet, so fallback is exact.
+            if (!worker) throw error;
+            worker.onmessage = worker.onerror = worker.onmessageerror = null;
+            worker.terminate(); worker = null;
+            if (workerUrl) URL.revokeObjectURL(workerUrl);
+            workerUrl = null;
+            local = createGifSession(canvas.width, canvas.height, duration, fps, transparent, true);
+            document.documentElement.setAttribute('data-gif-encoder', 'cooperative');
+          }
+          if (worker && workerMotion && typeof OffscreenCanvas === 'function') {
+            var transferred;
+            try {
+              transferred = workerMotion.bitmap;
+              await call('attach', [transferred, workerMotion.scene], [transferred]);
+              offscreen = true;
+              canvas.width = canvas.height = 0;
+              workerMotion.release();
+              document.documentElement.setAttribute('data-gif-encoder', 'offscreen-worker');
+            } catch (_) {
+              // Keep the original native bitmap for an exact main-canvas path.
+              if (transferred) transferred.close();
+              await workerMotion.restore();
+            }
+          }
+          async function render(seconds, method) {
+            if (offscreen) {
+              var bytes = await call('render', [seconds, method]);
+              document.documentElement.setAttribute('data-gif-readback-bytes', String(bytes));
+            } else { paint(seconds); await readRows(method); }
+          }
+          for (var sample = 0; sample < 8; sample++) {
+            await render(sample * duration / 8000, 'sample');
+          }
+          await call('prepare', []);
+          var count = Math.max(2, Math.round(duration * fps / 1000));
+          for (var frame = 0; frame < count; frame++) {
+            await render(frame * duration / count / 1000, 'pixels');
+            await call('frame', [frame]);
+          }
+          return await call('finish', []);
+        } finally {
+          if (worker) { worker.onmessage = worker.onerror = worker.onmessageerror = null; worker.terminate(); }
+          if (workerUrl) URL.revokeObjectURL(workerUrl);
+          fail(new Error('GIF encoding disposed'));
+          local = worker = null;
+        }
       }
 
       // WebM alpha uses a second VP8 bitstream in BlockAdditional (ID 1).
@@ -6897,7 +7097,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         var svg = document.querySelector('.diagram-container svg');
         var vb = svg.viewBox.baseVal;
         var scale;
-        try { scale = exportScale(options, Math.min(1, 1280 / vb.width), vb.width, vb.height); }
+        try { scale = exportScale(options, Math.min(1, 1280 / vb.width), vb.width, vb.height, format === 'gif'); }
         catch (error) { return Promise.reject(error); }
         var data = serializeSvg(scale, { transparentBackground: options.transparentBackground === true });
         var sourceUrl = URL.createObjectURL(new Blob([data.svgString], { type: 'image/svg+xml;charset=utf-8' }));
@@ -6932,6 +7132,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
           function authoredStep(element, fallback) {
             var raw = element.style.getPropertyValue('--step') || getComputedStyle(element).getPropertyValue('--step');
+            if (!raw.trim()) return fallback;
             var value = Number(raw);
             return Number.isFinite(value) ? value : fallback;
           }
@@ -6961,7 +7162,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             };
           }).filter(Boolean);
 
-          return { edges: edges, nodes: nodes, x: vb.x, y: vb.y, width: vb.width, height: vb.height };
+          return { edges: edges, nodes: nodes, gif: format === 'gif', x: vb.x, y: vb.y, width: vb.width, height: vb.height };
         }
 
         function pointAlong(points, progress) {
@@ -6992,6 +7193,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         function drawMotionFrame(ctx, backgroundImage, motionScene, elapsed) {
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
           ctx.drawImage(backgroundImage, 0, 0, ctx.canvas.width, ctx.canvas.height);
+          if (motionScene.gif && elapsed === 0) return;
           ctx.save();
           ctx.scale(ctx.canvas.width / motionScene.width, ctx.canvas.height / motionScene.height);
           ctx.translate(-motionScene.x, -motionScene.y);
@@ -6999,6 +7201,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           motionScene.edges.forEach(function (edge) {
             var duration = 1.75;
             var progress = (elapsed - edge.delay) / duration;
+            if (motionScene.gif && elapsed >= edge.delay) progress = ((elapsed - edge.delay) % duration) / duration;
             if (progress < 0 || progress > 1) return;
             var head = Math.max(0, Math.min(1, progress));
             var tail = Math.max(0, head - 0.24);
@@ -7031,6 +7234,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
           motionScene.nodes.forEach(function (node) {
             var progress = (elapsed - node.delay) / 2.6;
+            if (motionScene.gif && elapsed >= node.delay) progress = ((elapsed - node.delay) % 2.6) / 2.6;
             if (progress < 0 || progress > 1) return;
             var pulse = Math.sin(Math.PI * progress);
             if (pulse <= 0.02) return;
@@ -7050,19 +7254,24 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         }
 
         return new Promise(function (resolve, reject) {
-          var stream, recorder, raf = 0, timers = [], settled = false;
+          var stream, recorder, motionCanvas, motionBitmap, raf = 0, timers = [], settled = false;
           var backgroundImage = new Image();
           function finish(error, blob) {
             if (settled) return;
             settled = true;
             cancelAnimationFrame(raf);
             timers.forEach(clearTimeout);
+            timers.length = 0;
             backgroundImage.onload = backgroundImage.onerror = null;
+            backgroundImage.removeAttribute('src');
+            if (motionBitmap) { motionBitmap.close(); motionBitmap = null; }
             if (recorder) {
               recorder.ondataavailable = recorder.onerror = recorder.onstop = null;
               try { if (recorder.state !== 'inactive') recorder.stop(); } catch (_) {}
             }
             if (stream) stream.getTracks().forEach(function (track) { try { track.stop(); } catch (_) {} });
+            if (motionCanvas) motionCanvas.width = motionCanvas.height = 0;
+            motionCanvas = stream = recorder = null;
             URL.revokeObjectURL(sourceUrl);
             if (error) reject(error); else resolve(blob);
           }
@@ -7072,19 +7281,33 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
               try { fn(); } catch (error) { finish(error); }
             }, delay));
           }
-          backgroundImage.onload = function () {
+          backgroundImage.onload = async function () {
             try {
               var motionScene = createMotionScene(svg);
-              var canvas = document.createElement('canvas');
+              var canvas = motionCanvas = document.createElement('canvas');
               canvas.width = Math.max(2, format === 'gif' ? Math.round(data.width) : Math.round(data.width / 2) * 2);
               canvas.height = Math.max(2, format === 'gif' ? Math.round(data.height) : Math.round(data.height / 2) * 2);
               var ctx = canvas.getContext('2d');
               if (!ctx) throw exportError('viewer.export.error.mediaRecorder');
+              // Freeze the SVG once at the requested native resolution. Reusing
+              // its bitmap avoids re-rasterizing the vector for all samples and
+              // frames; it does not upscale a lower-resolution preview.
+              if (format === 'gif' && typeof createImageBitmap === 'function') {
+                ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+                try { motionBitmap = await createImageBitmap(canvas); } catch (_) {}
+                if (settled) { if (motionBitmap) motionBitmap.close(); return; }
+              }
               if (format === 'gif' || options.transparentBackground) {
                 var encoder = format === 'gif' ? encodeGif : encodeAlphaWebm;
                 encoder(canvas, function (seconds) {
-                  drawMotionFrame(ctx, backgroundImage, motionScene, seconds);
-                }, duration, fps, options.transparentBackground === true).then(function (blob) { finish(null, blob); }, finish);
+                  drawMotionFrame(ctx, motionBitmap || backgroundImage, motionScene, seconds);
+                }, duration, fps, options.transparentBackground === true,
+                  format === 'gif' && motionBitmap ? {
+                    bitmap: motionBitmap, scene: motionScene,
+                    source: pointAlong.toString() + '\n' + roundedRectPath.toString() + '\n' + drawMotionFrame.toString(),
+                    release: function () { motionBitmap.close(); motionBitmap = null; backgroundImage.removeAttribute('src'); },
+                    restore: async function () { motionBitmap = await createImageBitmap(canvas); }
+                  } : null).then(function (blob) { finish(null, blob); }, finish);
                 return;
               }
               stream = canvas.captureStream(fps);
