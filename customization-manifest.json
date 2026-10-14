@@ -254,7 +254,7 @@
     },
     {
       "path": "references/visual-acceptance.md",
-      "sha256": "f45149cd706551b957da25925e444808e46705ccae85e52470aa41b39c4adf4a"
+      "sha256": "b4bf5ab8e63efb5e9c514cf565b09225b9dcaaed8c378fd72ffd5cf80f3f2c5a"
     },
     {
       "path": "renderers/architecture/labels.mjs",
@@ -322,7 +322,7 @@
     },
     {
       "path": "SKILL.md",
-      "sha256": "bc88d9f4b613595e0d4ff455981aef8d6ba13e99c08b1004a17d54bc42dbb823"
+      "sha256": "84c11f1791eb86577e59185e2fdf8b221e9b125ab7903006573965683c444ce6"
     },
     {
       "path": "test/export-browser.test.mjs",
