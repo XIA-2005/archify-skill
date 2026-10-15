@@ -143,6 +143,34 @@ test('Intent Trace preserves input handoffs, transient geometry and cleanup', {
     assert.match(api.text, /API Server/); assert.equal((await snapshot('public-cleared')).status, '');
   });
 
+  await t.test('hover signals have equal screen size and paint above solid and dashed routes', async () => {
+    await load();
+    for (const zoom of [1, 0.8]) {
+      await run(`document.querySelector('.diagram-container > svg').style.transition='none'; document.querySelector('.diagram-container > svg').style.transform='scale(${zoom})'; new Promise(requestAnimationFrame)`);
+      assert.equal(await run("Archify.intentTrace.clear(); Archify.intentTrace.show('api')"), true);
+      const signals = await run(`(()=>{
+        const svg=document.querySelector('.diagram-container > svg');
+        const edges=[...svg.querySelectorAll('[data-edge-from][data-intent-trace-match]')].filter(n=>n.getTotalLength);
+        return edges.filter(n=>['lb-to-api','jwt-verification'].includes(n.dataset.edgeId)).map(edge=>{
+          const flows=[...svg.querySelectorAll('.intent-trace-flow')].filter(n=>n.getAttribute('d')===edge.getAttribute('d'));
+          const flow=flows[0];flow.getAnimations().forEach(a=>{a.pause();a.currentTime=450;});const c=getComputedStyle(flow),m=flow.getScreenCTM(),scale=Math.hypot(m.a,m.b);
+          return {id:edge.dataset.edgeId,length:edge.getTotalLength(),dash:parseFloat(c.strokeDasharray)*scale,width:parseFloat(c.strokeWidth)*scale,
+            opacity:c.opacity,blur:parseFloat(c.filter.split(' ').at(-1))*scale,clones:flows.length,normalized:flow.hasAttribute('pathLength'),vector:c.vectorEffect,
+            above:!!(edge.compareDocumentPosition(flow)&Node.DOCUMENT_POSITION_FOLLOWING)};
+        });
+      })()`);
+      assert.equal(signals.length,2);
+      for(const signal of signals){
+        assert.ok(Math.abs(signal.dash-24)<.02,JSON.stringify(signal));
+        assert.ok(Math.abs(signal.width-3.1)<.02,JSON.stringify(signal));
+        assert.equal(signal.clones,1);assert.equal(signal.opacity,'0.94');assert.ok(Math.abs(signal.blur-2)<.02,JSON.stringify(signal));
+        assert.equal(signal.normalized,false);assert.equal(signal.vector,'none');assert.equal(signal.above,true);
+      }
+      assert.ok(signals[0].length/signals[1].length>8);
+      await move(); await afterTimer();
+    }
+  });
+
   await t.test('real pointer delay, fast exit, keyboard focus and Escape share cleanup', async () => {
     await load(); await move('api');
     await run(`intentWait(()=>Archify.intentTrace.active()==='api')`);
@@ -246,8 +274,8 @@ test('Intent Trace preserves input handoffs, transient geometry and cleanup', {
       const overlay=svg.querySelector('[data-intent-trace-overlay]'),shapes=[...overlay.querySelectorAll('.intent-trace-flow')];
       const data={directions:shapes.map(n=>n.getAttribute('data-direction')),status:document.getElementById('intent-trace-status').textContent,
         transform:overlay.firstElementChild.getAttribute('transform'),d:shapes[0].getAttribute('d'),points:shapes[3].getAttribute('points'),
-        stripped:!overlay.querySelector('[id],[style],[marker-end],[data-edge-from]'),pathLength:shapes.every(n=>n.getAttribute('pathLength')==='1'),
-        original:svg.querySelector('#original-path').outerHTML===original,beforeEdges:overlay.nextElementSibling.hasAttribute('data-edge-from')};
+        stripped:!overlay.querySelector('[id],[marker-end],[data-edge-from]'),pathLength:shapes.every(n=>!n.hasAttribute('pathLength')),
+        original:svg.querySelector('#original-path').outerHTML===original,beforeNodes:overlay.nextElementSibling.hasAttribute('data-node-id')};
       Archify.intentTrace.show('solo',{announce:true});data.solo={active:Archify.intentTrace.active(),overlays:svg.querySelectorAll('[data-intent-trace-overlay]').length,status:document.getElementById('intent-trace-status').textContent};
       return data;
     })()`);
@@ -255,7 +283,7 @@ test('Intent Trace preserves input handoffs, transient geometry and cleanup', {
     assert.match(result.status, /Alpha/); assert.match(result.status, /1 outgoing/); assert.match(result.status, /1 incoming/);
     assert.match(result.status, /1 self loop/); assert.match(result.status, /3 connections/);
     assert.equal(result.transform, 'translate(3 4)'); assert.equal(result.d, 'M0 0 L10 10'); assert.equal(result.points, '1,2 3,4');
-    for (const flag of ['stripped', 'pathLength', 'original', 'beforeEdges']) assert.equal(result[flag], true, flag);
+    for (const flag of ['stripped', 'pathLength', 'original', 'beforeNodes']) assert.equal(result[flag], true, flag);
     assert.equal(result.solo.active, 'solo'); assert.equal(result.solo.overlays, 0);
     assert.match(result.solo.status, /0 connections/);
     await snapshot('geometry-fixture');

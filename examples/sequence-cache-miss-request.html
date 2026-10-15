@@ -4517,7 +4517,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     svg[data-relationship-preview-active] [data-relationship-preview-node] { opacity: 1; }
     svg[data-relationship-preview-active] [data-graph-role="automatic-crossover"]:has(> [data-relationship-preview]) > [data-graph-role="automatic-crossover-underlay"] { opacity: 1; }
     svg[data-relationship-preview-active] [data-relationship-preview] {
-      filter: drop-shadow(0 0 5px var(--arrow-emphasis));
+      /* Keep sustained edge emphasis crisp; only the traveling signal glows. */
+      filter: none;
     }
     svg[data-relationship-preview-active] [data-relationship-preview] path,
     svg[data-relationship-preview-active] path[data-relationship-preview],
@@ -4537,28 +4538,26 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     .relationship-flow-pulse {
       fill: none;
       stroke: var(--arrow-emphasis);
-      stroke-width: 3.35;
+      stroke-width: calc(3.35px / var(--relationship-pulse-scale, 1));
       stroke-linecap: round;
-      stroke-dasharray: 0.085 0.915;
-      stroke-dashoffset: 0;
-      vector-effect: non-scaling-stroke;
+      stroke-dashoffset: var(--relationship-pulse-start, 18);
       opacity: 0;
-      filter: drop-shadow(0 0 4px var(--arrow-emphasis));
+      filter: drop-shadow(0 0 var(--relationship-pulse-blur, 2px) var(--arrow-emphasis));
       animation: archify-relationship-pulse 1.2s linear 1 both;
     }
     svg[data-preset="signal-flow"] .relationship-flow-pulse {
       stroke: var(--frontend-stroke);
-      stroke-width: 3.85;
-      filter: drop-shadow(0 0 7px var(--frontend-stroke));
+      stroke-width: calc(3.85px / var(--relationship-pulse-scale, 1));
+      filter: drop-shadow(0 0 var(--relationship-pulse-blur, 2px) var(--frontend-stroke));
     }
     svg[data-preset="blueprint"] .relationship-flow-pulse {
-      stroke-width: 2.5;
+      stroke-width: calc(2.5px / var(--relationship-pulse-scale, 1));
       stroke-linecap: square;
       filter: none;
     }
     svg[data-preset="editorial"] .relationship-flow-pulse {
       stroke: var(--arrow-emphasis);
-      stroke-width: 2.75;
+      stroke-width: calc(2.75px / var(--relationship-pulse-scale, 1));
       filter: none;
     }
     .semantic-flow-token {
@@ -4626,9 +4625,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       fill: none;
       stroke-width: 3.1;
       stroke-linecap: round;
-      stroke-dasharray: 0.1 0.9;
       stroke-dashoffset: 0;
-      vector-effect: non-scaling-stroke;
       opacity: 0.94;
       animation: archify-intent-trace-flow 1.15s linear 1 both;
     }
@@ -4637,16 +4634,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
        incoming and outgoing signals must share the same playback direction. */
     .intent-trace-flow[data-direction="out"] {
       stroke: var(--frontend-stroke);
-      filter: drop-shadow(0 0 4px var(--frontend-stroke));
+      filter: drop-shadow(0 0 var(--intent-trace-blur, 2px) var(--frontend-stroke));
     }
     .intent-trace-flow[data-direction="in"] {
       stroke: var(--database-stroke);
-      filter: drop-shadow(0 0 4px var(--database-stroke));
+      filter: drop-shadow(0 0 var(--intent-trace-blur, 2px) var(--database-stroke));
       animation-direction: normal;
     }
     .intent-trace-flow[data-direction="loop"] {
       stroke: var(--security-stroke);
-      filter: drop-shadow(0 0 4px var(--security-stroke));
+      filter: drop-shadow(0 0 var(--intent-trace-blur, 2px) var(--security-stroke));
     }
     svg[data-preset="blueprint"] [data-intent-trace-selected],
     svg[data-preset="blueprint"] .intent-trace-flow {
@@ -4783,7 +4780,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     svg[data-preset="blueprint"][data-focus-active][data-reach-active] [data-focus-selected][data-reach-origin] {
       filter: none;
     }
-    svg[data-preset="blueprint"][data-relationship-preview-active] [data-relationship-preview],
     svg[data-preset="blueprint"][data-relationship-preview-active] [data-relationship-preview-source],
     svg[data-preset="blueprint"][data-relationship-preview-active] [data-relationship-preview-target] {
       filter: drop-shadow(0 0 3px var(--frontend-stroke));
@@ -4886,7 +4882,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     @keyframes archify-intent-trace-flow {
       0% { opacity: 0.28; stroke-dashoffset: 0; }
       12%, 78% { opacity: 0.94; }
-      100% { opacity: 0; stroke-dashoffset: -1; }
+      100% { opacity: 0; stroke-dashoffset: var(--intent-trace-end); }
     }
     @keyframes archify-route-probe-flow {
       0% { stroke-dashoffset: 0; opacity: 0.96; }
@@ -4904,9 +4900,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       100% { opacity: 0; stroke-dashoffset: -1; }
     }
     @keyframes archify-relationship-pulse {
-      0% { opacity: 0.18; stroke-dashoffset: 0; }
+      0% { opacity: 0.18; stroke-dashoffset: var(--relationship-pulse-start, 18); }
       10%, 76% { opacity: 0.98; }
-      100% { opacity: 0; stroke-dashoffset: -1; }
+      100% { opacity: 0; stroke-dashoffset: var(--relationship-pulse-end); }
     }
     @keyframes archify-relationship-token-life {
       0%, 7% { opacity: 0; }
@@ -4943,7 +4939,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       
       .intent-trace-flow {
         animation: none !important;
-        stroke-dasharray: none;
+        stroke-dasharray: none !important;
         stroke-dashoffset: 0;
         opacity: 0.72;
       }
@@ -8924,7 +8920,22 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         clone.removeAttribute('data-focus-match');
         clone.removeAttribute('data-relationship-preview');
         clone.setAttribute('class', 'relationship-flow-pulse');
-        clone.setAttribute('pathLength', '1');
+        // Convert screen pixels to local units for equal signals at every viewer zoom.
+        // Avoid pathLength normalization and non-scaling-stroke on this clone.
+        clone.removeAttribute('pathLength');
+        clone.removeAttribute('vector-effect');
+        var total = 0;
+        try { total = Number(shape.getTotalLength()); } catch (_) {}
+        if (!Number.isFinite(total) || total <= 0) return null;
+        var matrix = shape.getScreenCTM();
+        var scale = matrix ? Math.hypot(matrix.a, matrix.b) : 1;
+        if (!Number.isFinite(scale) || scale <= 0) scale = 1;
+        var glowLength = 24 / scale;
+        clone.style.setProperty('--relationship-pulse-scale', String(scale));
+        clone.style.setProperty('--relationship-pulse-blur', (2 / scale) + 'px');
+        clone.style.setProperty('--relationship-pulse-start', String(glowLength));
+        clone.style.strokeDasharray = glowLength + ' ' + (total + glowLength);
+        clone.style.setProperty('--relationship-pulse-end', String(-total));
         return clone;
       }
       function relationshipTokenKind(edge) {
@@ -9040,7 +9051,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           if (edge.hasAttribute('transform')) wrapper.setAttribute('transform', edge.getAttribute('transform'));
           var shapes = relationshipEdgeShapes(edge);
           shapes.forEach(function (shape) {
-            wrapper.appendChild(relationshipPulseGeometry(shape));
+            var pulse = relationshipPulseGeometry(shape);
+            if (pulse) wrapper.appendChild(pulse);
           });
           if (!tokenAdded && shapes.length) {
             var tokenKind = relationshipTokenKind(edge);
@@ -10060,6 +10072,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         clone.removeAttribute('id');
         clone.removeAttribute('class');
         clone.removeAttribute('style');
+        clone.removeAttribute('filter');
         clone.removeAttribute('marker-start');
         clone.removeAttribute('marker-mid');
         clone.removeAttribute('marker-end');
@@ -10076,7 +10089,21 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         clone.removeAttribute('data-intent-trace-selected');
         clone.setAttribute('class', 'intent-trace-flow');
         clone.setAttribute('data-direction', direction);
-        clone.setAttribute('pathLength', '1');
+        // Hover has its own geometry (separate from the relationship inspector).
+        // Size the signal in screen pixels, rather than a fraction of the route.
+        clone.removeAttribute('pathLength');
+        clone.removeAttribute('vector-effect');
+        var total = 0;
+        try { total = Number(shape.getTotalLength()); } catch (_) {}
+        if (!Number.isFinite(total) || total <= 0) return null;
+        var matrix = shape.getScreenCTM();
+        var scale = matrix ? Math.hypot(matrix.a, matrix.b) : 1;
+        if (!Number.isFinite(scale) || scale <= 0) scale = 1;
+        var signalLength = 24 / scale;
+        clone.style.strokeDasharray = signalLength + ' ' + (total + signalLength);
+        clone.style.strokeWidth = (3.1 / scale) + 'px';
+        clone.style.setProperty('--intent-trace-end', String(-total));
+        clone.style.setProperty('--intent-trace-blur', (2 / scale) + 'px');
         return clone;
       }
       function show(id, options) {
@@ -10120,7 +10147,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           var wrapper = document.createElementNS(namespace, 'g');
           if (edge.hasAttribute('transform')) wrapper.setAttribute('transform', edge.getAttribute('transform'));
           edgeShapes(edge).forEach(function (shape) {
-            wrapper.appendChild(traceGeometry(shape, direction));
+            var flow = traceGeometry(shape, direction);
+            if (flow) wrapper.appendChild(flow);
           });
           if (wrapper.childNodes.length) overlay.appendChild(wrapper);
         });
@@ -10131,10 +10159,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           if (nodeId === id) node.setAttribute('data-intent-trace-selected', '');
         });
         if (overlay.childNodes.length) {
-          var firstEdge = edgeList[0];
           var firstNode = svg.querySelector('[data-node-id]');
-          if (firstEdge && firstEdge.parentNode) firstEdge.parentNode.insertBefore(overlay, firstEdge);
-          else if (firstNode) svg.insertBefore(overlay, firstNode);
+          // Paint above solid and dashed edges equally, below opaque node masks.
+          if (firstNode) svg.insertBefore(overlay, firstNode);
           else svg.appendChild(overlay);
         }
         activeId = id;

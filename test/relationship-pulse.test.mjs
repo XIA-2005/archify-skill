@@ -52,7 +52,15 @@ test('pulse clones only the previewed authored geometry and keeps source-to-targ
   assert.match(html, /clone\.removeAttribute\('marker-end'\)/);
   assert.match(html, /clone\.removeAttribute\('data-edge-key'\)/);
   assert.match(html, /clone\.removeAttribute\('filter'\)/);
-  assert.match(html, /clone\.setAttribute\('pathLength', '1'\)/);
+  assert.match(html, /clone\.removeAttribute\('pathLength'\)/);
+  assert.match(html, /shape\.getTotalLength/);
+  assert.match(html, /var glowLength = 24 \/ scale/);
+  assert.match(html, /--relationship-pulse-blur/);
+  assert.match(html, /--relationship-pulse-scale/);
+  assert.match(html, /clone\.style\.strokeDasharray\s*=\s*glowLength\s*\+\s*' '\s*\+\s*\(total\s*\+\s*glowLength\)/);
+  assert.match(html, /--relationship-pulse-end/);
+  assert.match(html, /0% \{ opacity: 0\.18; stroke-dashoffset: var\(--relationship-pulse-start, 18\)/);
+  assert.match(html, /stroke-width: calc\(3\.35px \/ var\(--relationship-pulse-scale, 1\)\)/);
   assert.match(html, /overlay\.setAttribute\('data-relationship-pulse-key', key\)/);
   assert.match(html, /function relationshipTokenPath\(shape\)/);
   assert.match(html, /tagName === 'path'.+shape\.getAttribute\('d'\)/s);
@@ -61,7 +69,7 @@ test('pulse clones only the previewed authored geometry and keeps source-to-targ
   assert.match(html, /motion\.setAttribute\('path', pathData\)/);
   assert.match(html, /motion\.setAttribute\('rotate', 'auto'\)/);
   assert.match(html, /svg\.insertBefore\(overlay, firstNode\)/);
-  assert.match(html, /stroke-dashoffset: -1/);
+  assert.match(html, /stroke-dashoffset: var\(--relationship-pulse-end\)/);
 });
 
 test('semantic token classification is evidence-based and fail-closed', () => {

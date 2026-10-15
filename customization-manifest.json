@@ -6,7 +6,7 @@
   "files": [
     {
       "path": "assets/template.html",
-      "sha256": "18ec30ae165661c30c321fa5d775c6ac406228aa7366516215d5f01445cf6242"
+      "sha256": "bd1fd64878d1824e50cb1bc8aa9f61e938e5aa981937d3166db5f81388c02846"
     },
     {
       "path": "bin/delivery-update.mjs",
@@ -206,11 +206,11 @@
     },
     {
       "path": "examples/dataflow-product-analytics.html",
-      "sha256": "21f42b20f4352ff3db929cdff07e8fe215ae49679c450396b1121db38b3316b6"
+      "sha256": "a53b9a9520ef527b72ab19c09be24094af37bf7307369c0297a20be781ba064e"
     },
     {
       "path": "examples/lifecycle-agent-run.html",
-      "sha256": "ff12382b7766b999c73018011b368079034dacc10006725d2cb0af89cf650e93"
+      "sha256": "199d2ea4b4d0e5c20fc4e5a9a74b652ebc1754821fcc385c9e706a241fc1b476"
     },
     {
       "path": "examples/locales/de.json",
@@ -246,15 +246,15 @@
     },
     {
       "path": "examples/sequence-cache-miss-request.html",
-      "sha256": "56938fa9a0a383ca216116eb32c045ab7d1eae3143d1927d81c05d58b3aa718e"
+      "sha256": "dcc2b2968ff945f52d6239b128c07250ed8b23cdecbb5a8075218bb66db1493d"
     },
     {
       "path": "examples/web-app-rendered.html",
-      "sha256": "d11f8e4ee27f918f7e363866a28a1ced09da1d269080e50bcded8acdefec20fb"
+      "sha256": "360d8a39a23d6979fe86e1c7f03cac4996df70bb767f1824b20ae441c5653740"
     },
     {
       "path": "examples/workflow-agent-tool-call-rendered.html",
-      "sha256": "ca1935b3c4a5bda957a99ae8febdc3a1600bf99d4fc353ae135df0d2f654b1b5"
+      "sha256": "9f18f3c82096c7b66bcba77e0b12a605f371de3097a3075642f08250c0aa4b11"
     },
     {
       "path": "LOCAL_CUSTOMIZATION.md",

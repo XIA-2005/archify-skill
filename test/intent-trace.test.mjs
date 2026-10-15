@@ -69,7 +69,7 @@ test('Intent Trace keeps incoming and outgoing motion on authored source-to-targ
     );
     assert.match(incomingRule, /animation-direction\s*:\s*normal/, mode);
     assert.match(html, /function traceGeometry\(shape, direction\)[\s\S]+shape\.cloneNode\(false\)/, mode);
-    assert.match(html, /@keyframes archify-intent-trace-flow[\s\S]+stroke-dashoffset: -1/, mode);
+    assert.match(html, /@keyframes archify-intent-trace-flow[\s\S]+stroke-dashoffset: var\(--intent-trace-end\)/, mode);
   }
 });
 
@@ -107,7 +107,8 @@ test('Intent Trace separates hover, keyboard, touch, and committed focus', () =>
 
 test('Intent Trace normalizes motion, respects reduced motion, and exports cleanly', () => {
   const html = render('architecture', CASES.architecture);
-  assert.match(html, /clone\.setAttribute\('pathLength', '1'\)/);
+  assert.match(html, /var signalLength = 24 \/ scale/);
+  assert.match(html, /clone\.style\.strokeWidth = \(3\.1 \/ scale\)/);
   assert.match(html, /\.intent-trace-flow\[data-direction="out"\]/);
   assert.match(html, /\.intent-trace-flow\[data-direction="in"\]/);
   assert.match(html, /\.intent-trace-flow\[data-direction="loop"\]/);
