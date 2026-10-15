@@ -35,7 +35,7 @@ function sortedBy(values, keyFor) {
 
 function normalizeRepository(repository) {
   if (!repository) return undefined;
-  const location = parseRepositoryRemote(repository.url, { authored: true });
+  const location = parseRepositoryRemote(repository.url, { authored: true, provider: repository.provider });
   const url = location?.url || String(repository.url || '');
   return {
     url: location?.provider === 'github' ? url.toLowerCase() : url,
@@ -274,7 +274,7 @@ export function compareArchitecture(base, head, evidence = {}) {
 
   const baseRepository = normalizeRepository(base.meta?.repository);
   const headRepository = normalizeRepository(head.meta?.repository);
-  const identity = (repository) => parseRepositoryRemote(repository.url, { authored: true })?.identity || repository.url;
+  const identity = (repository) => parseRepositoryRemote(repository.url, { authored: true, provider: repository.provider })?.identity || repository.url;
   if (baseRepository && headRepository && identity(baseRepository) !== identity(headRepository)) {
     fail('delta/repository-mismatch', 'The snapshots name different repositories.', {
       baseRepository: baseRepository.url,
@@ -771,7 +771,7 @@ export function renderArchitectureDeltaHtml({ receipt, baseSvg, deltaSvg, headSv
     ? `<iframe class="snapshot-frame" title="After architecture explorer" srcdoc="${esc(headHtml)}"></iframe>`
     : headSvg;
   const html = `<!doctype html>
-<html lang="en" data-theme="dark" data-preset="${esc(receipt.view.visualPreset)}">
+<html lang="en" data-theme="light" data-preset="${esc(receipt.view.visualPreset)}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(receipt.head.title)} Architecture Delta</title>
 <style>
 ${artifactCss}

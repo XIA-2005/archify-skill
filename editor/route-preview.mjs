@@ -1,3 +1,4 @@
+import { createSessionFiles } from './session-files.mjs';
 // Use the ACTUAL Archify renderer to obtain editor geometry.
 // Never duplicate its orthogonal route solver in the browser.
 import fs from 'node:fs';
@@ -72,7 +73,9 @@ export async function renderArchifyRoutes({ candidate, cli, cwd, repoRoot = cwd,
   const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'archify-route-preview-'));
   const input = path.join(directory, 'candidate.json');
   const output = path.join(directory, 'preview.html');
+  const files = createSessionFiles(directory, [input, output]);
   try {
+    files.assert();
     await fs.promises.writeFile(input, JSON.stringify(candidate), { flag: 'wx' });
     const argv = [cli, 'render', 'architecture', input, output, '--quality',
       candidate.meta.quality_profile || 'showcase',
@@ -92,11 +95,12 @@ export async function renderArchifyRoutes({ candidate, cli, cwd, repoRoot = cwd,
       error.name = 'AbortError';
       throw error;
     }
-    const html = await fs.promises.readFile(output, 'utf8');
+    const html = files.read(output, 'utf8');
     const start = html.indexOf('<svg ', html.indexOf('<!-- Main Diagram -->'));
     const end = html.indexOf('</svg>', start) + 6;
     return { edges: extractArchifyRoutes(html, (candidate.connections||[]).length), sceneSvg: html.slice(start, end) };
   } finally {
+    files.assert();
     await fs.promises.rm(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 }

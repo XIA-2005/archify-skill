@@ -2,7 +2,37 @@
   "project": "draw.io",
   "version": "29.7.9",
   "source": "User-provided draw.io Desktop resources/app.asar; drawio/src/main/webapp",
+  "upstream": {
+    "project": "draw.io (diagrams.net)",
+    "web_repository": "https://github.com/jgraph/drawio",
+    "desktop_repository": "https://github.com/jgraph/drawio-desktop",
+    "desktop_releases": "https://github.com/jgraph/drawio-desktop/releases",
+    "identity_scope": "Upstream project references, not proof that these local bytes match an official release."
+  },
+  "provenance": {
+    "version_basis": "Recorded vendored webapp version 29.7.9; the drawio editor browser test also checks mxClient.VERSION against this value.",
+    "origin_basis": "Existing import record: extracted from a user-provided Desktop resources/app.asar, under drawio/src/main/webapp. VERIFY-01 did not independently repeat or authenticate that extraction.",
+    "original_app_asar_sha256": null,
+    "official_release_artifact_sha256": null,
+    "upstream_commit": null,
+    "independent_official_comparison": "Not performed against an official release archive/tarball or a pinned upstream commit. Neither the original Desktop artifact identity nor correspondence to official 29.7.9 release bytes has been independently verified.",
+    "security_review_scope": "Local file consistency only. No full official provenance audit or line-by-line audit of the bundled third-party implementations; matching local hashes do not establish authenticity or absence of vulnerabilities."
+  },
   "license": "Apache-2.0",
+  "hash_verification": {
+    "verified_on": "2026-10-15",
+    "algorithm": "SHA-256",
+    "method": "Node.js crypto.createHash('sha256') over fs.readFileSync raw file bytes; lowercase hexadecimal, with no decoding, newline normalization, decompression, or minification.",
+    "path_base": "archify/editor/vendor/drawio, relative to the repository root",
+    "coverage": "All 13 payload files in this directory tree are listed in files; SOURCE.json is metadata and is excluded from its own hash list.",
+    "result": "13 of 13 listed hashes match; no payload bytes or recorded digest values changed in VERIFY-01.",
+    "recompute_powershell_from_repository_root": [
+      "$vendor = Join-Path (Get-Location) 'archify/editor/vendor/drawio'",
+      "$manifest = Get-Content -LiteralPath (Join-Path $vendor 'SOURCE.json') -Raw -Encoding UTF8 | ConvertFrom-Json",
+      "foreach ($entry in $manifest.files.PSObject.Properties) { $actual = (Get-FileHash -LiteralPath (Join-Path $vendor $entry.Name) -Algorithm SHA256).Hash.ToLowerInvariant(); if ($actual -cne $entry.Value) { throw ('SHA-256 mismatch: ' + $entry.Name) }; Write-Output ('MATCH ' + $entry.Name + ' ' + $actual) }"
+    ],
+    "existing_test_from_repository_root": "node --test archify/test/drawio-geometry.test.mjs"
+  },
   "files": {
     "app.min.js": "30e0e7ec734b081928b3facd4044c421943e67337a457ad4f655bf4c72c83a32",
     "LICENSE": "5ad8c213095c573921d7388edf93f6a9f54490b8ebf3b165ae8ef1947cf70846",

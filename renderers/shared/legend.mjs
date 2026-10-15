@@ -1,3 +1,4 @@
+import {assertFontFields, assertFontSize} from './font-size.mjs';
 import { throwDiagnosticError } from './diagnostics.mjs';
 import { rectsOverlap, segmentIntersectsRect } from './geometry.mjs';
 import { esc, textUnits } from './utils.mjs';
@@ -33,6 +34,7 @@ export function relationshipLegendObstacles(relations, { pointsFor, labelRectFor
 }
 
 export function resolveLegend(config, catalog, presentKinds) {
+  assertFontFields(config);
   const mode = config?.mode || 'auto';
   if (mode === 'hidden') return [];
   const present = presentKinds instanceof Set ? presentKinds : new Set(presentKinds || []);
@@ -196,6 +198,8 @@ export function measureLegend(entries, {
 }
 
 export function renderLegend({ entries, layout, renderSwatch, locale }) {
+  assertFontFields(entries);
+  if (layout.titleFontSize !== undefined) assertFontSize(layout.titleFontSize, 'legend title');
   if (!entries.length) return '';
   const measured = measureLegend(entries, layout);
   if (!measured) return '';

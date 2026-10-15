@@ -276,7 +276,8 @@ import {createDrawioAdapter} from './drawio-adapter.mjs';
 import {architectureNodeBox} from './shared/architecture-position.mjs';
 import {normalizeSceneGeometry} from './scene-normalize.mjs';
 import {componentTextGeometry,labelGeometry} from './shared/text-style.mjs';
-import {renderCards,arrowGeometry} from './shared/utils.mjs';
+import {createCards,arrowGeometry} from './shared/display-primitives.mjs';
+import {assertFontFields} from './shared/font-size.mjs';
 import {fontCategories,fontTargets,setCategoryFont} from './batch-fonts.mjs';
 import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
   levelOfDetail,searchNodes,minimapProjection} from './large-graph.mjs';
@@ -313,7 +314,7 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
   drawioFrame.hidden=false;
   svg.parentElement.appendChild(drawioFrame);
   drawio=createDrawioAdapter(drawioFrame,{
-    change(next){if(saving)return;const before=clone(spec);spec=next;checkpoint(before);draw();renderInspector();},
+    change(next){if(saving)return;assertFontFields(next);const before=clone(spec);spec=next;checkpoint(before);draw();renderInspector();},
     select(cells){selectedNodes=new Set(cells.filter(c=>c.kind==='node').map(c=>c.id));selected=cells[0]||null;selectedHandle=null;renderInspector();updateButtons();},
     undo,redo,save(){ $('save').click(); },
   });
@@ -327,8 +328,8 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
     $('theme-toggle').setAttribute('aria-pressed',String(theme==='light'));
     if(spec) draw(true);
   }
-  let savedTheme='dark';
-  try {if(localStorage.getItem('archify-editor-theme')==='light') savedTheme='light';} catch {}
+  let savedTheme='light';
+  try {if(localStorage.getItem('archify-editor-theme')==='dark') savedTheme='dark';} catch {}
   applyEditorTheme(savedTheme);
   $('theme-toggle').onclick=()=>{
     const theme=document.documentElement.dataset.theme==='light'?'dark':'light';
@@ -405,7 +406,11 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
     if (!history.length || saving) return;
     future.push(clone(spec)); spec = history.pop();
     if(cameraSnapshots.has(spec))camera={...cameraSnapshots.get(spec)};
-    selected = null; selectedHandle = null; selectedNodes.clear(); draw(); renderInspector(); updateButtons(); markDirty();
+    selected = null; selectedHandle = null; selectedNodes.clear();
+    // Force the next draw.io load to accept current routes+scene (undo may rebuild
+    // via load(null,null) first; without invalidate, seeded stays true and title snap is skipped).
+    drawio?.invalidate?.();
+    draw(); renderInspector(); updateButtons(); markDirty();
   }
   function redo() {
     linePreviewScale=arrowPreviewScale=null;
@@ -414,7 +419,9 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
     if (!future.length || saving) return;
     history.push(clone(spec)); spec = future.pop();
     if(cameraSnapshots.has(spec))camera={...cameraSnapshots.get(spec)};
-    selected = null; selectedHandle = null; selectedNodes.clear(); draw(); renderInspector(); updateButtons(); markDirty();
+    selected = null; selectedHandle = null; selectedNodes.clear();
+    drawio?.invalidate?.();
+    draw(); renderInspector(); updateButtons(); markDirty();
   }
   function updateButtons() {
     drawio?.setEnabled(!saving && !layoutPreview);
@@ -794,9 +801,15 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
   }
   function draw(viewOnly=false) {
     if (!spec) return;
+    // Mirror SVG: keep official routes/scene when only labelOffset changed so draw.io
+    // can snap-then-add immediately (routeKey includes labelOffset and would otherwise
+    // drop scene on the first inspector frame). Pass capture-time offsets for rail recovery.
+    const boundarySceneMatches=renderedBoundarySceneKey===JSON.stringify({components:spec.components,boundaries:(spec.boundaries||[]).map(({labelOffset,...b})=>b)});
+    const useOfficial=!layoutPreview&&!!officialScene&&(routeSignature===routeKey()||boundarySceneMatches);
     drawio?.load(layoutPreview?applyAutoLayout(spec,layoutPreview.plan):spec,
-      !layoutPreview&&routeSignature===routeKey()?renderedRoutes:null,
-      !layoutPreview&&routeSignature===routeKey()?officialScene:null);
+      useOfficial?renderedRoutes:null,
+      useOfficial?officialScene:null,
+      useOfficial?renderedBoundaryOffsets:null);
     if (!bigModeOverride) bigMode=spec.components.length>=LARGE_GRAPH_THRESHOLD;
     if (!viewOnly && viewportFrame) {cancelAnimationFrame(viewportFrame);viewportFrame=0;}
     frame(false);setCamera();
@@ -814,7 +827,6 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
     const emph=svgEl('marker',{
       id:'edit-arrow-emphasis',...markerAttrs},defs);
     svgEl('polygon',{points:g.points,fill:editorColor('#70deaf')},emph);
-    const boundarySceneMatches=renderedBoundarySceneKey===JSON.stringify({components:spec.components,boundaries:(spec.boundaries||[]).map(({labelOffset,...b})=>b)});
     for(const [index,b] of (spec.boundaries||[]).entries()) {
       const members=b.wraps.map(id=>nodeIndex.get(id)).filter(Boolean);
       if(!members.length) continue;
@@ -962,7 +974,7 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
     text($('diagram-title'),spec.meta.title);$('diagram-title').style.fontSize=(spec.meta.font_sizes?.title??24)+'px';
     text($('diagram-subtitle'),spec.meta.subtitle||'');$('diagram-subtitle').hidden=!spec.meta.subtitle;
     $('diagram-subtitle').style.fontSize=(spec.meta.font_sizes?.subtitle??14)+'px';
-    $('card-preview').innerHTML=renderCards(spec.cards||[]);
+    $('card-preview').replaceChildren(createCards(spec.cards||[],document));
     applyFontPreview();
     // Editing controls remain clickable even when a label overlaps a node or endpoint.
     for (const handle of svg.querySelectorAll('[data-bend],[data-segment],[data-label-handle]')) svg.append(handle);
@@ -1299,7 +1311,11 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
         autoFrame.onclick=()=>{if(!b.bounds)return;checkpoint();delete b.bounds;draw();renderInspector();};
         dom('h3','', '分组标题位置（可直接拖动文字）',panel);
         property('分组标题',b.label,v=>b.label=v,'text');fontProperty('分组标题字号',b,'label',9);
-        const setOffset=(axis,v)=>{const offset=[...(b.labelOffset||[0,0])];offset[axis]=v;b.labelOffset=offset;};
+        const setOffset=(axis,v)=>{
+          const offset=[...(b.labelOffset||[0,0])];offset[axis]=v;
+          // [0,0] is absent — delete so snap/rail defaults and reset match typed zeros.
+          if(offset[0]===0&&offset[1]===0)delete b.labelOffset; else b.labelOffset=offset;
+        };
         property('标题水平偏移 (px)',b.labelOffset?.[0]??0,v=>setOffset(0,v),'number');
         property('标题垂直偏移 (px)',b.labelOffset?.[1]??0,v=>setOffset(1,v),'number');
         const reset=dom('button','', '恢复标题默认位置',panel);reset.id='boundary-label-reset';
@@ -1466,7 +1482,10 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
     if(drag.kind==='boundary-label') {
       const p=point(event),b=spec.boundaries[drag.id];if(!b)return;
       const offset=[gridPos(drag.offset[0]+p.x-drag.start[0]),gridPos(drag.offset[1]+p.y-drag.start[1])];
-      if(JSON.stringify(offset)!==JSON.stringify(b.labelOffset||[0,0])){b.labelOffset=offset;drag.moved=true;draw();}
+      if(JSON.stringify(offset)!==JSON.stringify(b.labelOffset||[0,0])){
+        if(offset[0]===0&&offset[1]===0)delete b.labelOffset; else b.labelOffset=offset;
+        drag.moved=true;draw();
+      }
     } else if(drag.kind==='bend' || drag.kind==='segment') {
       const pos=point(event),edge=findEdge(drag.id);
       if(!edge)return;
@@ -1735,6 +1754,7 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
       const response=await fetch(new URL('api/spec',location.href));
       if(!response.ok)throw new Error('无法读取 candidate.json');
       const result=await response.json();
+      assertFontFields(result.candidate);
       spec=result.candidate;expectedHash=result.expectedHash;
       await migrateLegacyFonts();
       bigModeOverride=false;

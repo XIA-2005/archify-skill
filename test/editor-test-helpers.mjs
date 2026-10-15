@@ -4,8 +4,9 @@ import path from 'node:path';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
-export async function startEditor(t, candidate, schema=false) {
+export async function startEditor(t, candidate, schema=false, setup=()=>{}) {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'archify-recovery-'));
+  setup(dir);
   const input=path.join(dir,'candidate.json');fs.writeFileSync(input,JSON.stringify(candidate));
   const server=spawn(process.execPath,[fileURLToPath(new URL(`../editor/serve${schema?'-schema':''}.mjs`,import.meta.url)),'candidate.json'],{cwd:dir,windowsHide:true,stdio:['ignore','pipe','pipe']});
   let output='',error='';server.stdout.on('data',v=>output+=v);server.stderr.on('data',v=>error+=v);

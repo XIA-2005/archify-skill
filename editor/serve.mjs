@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+import { createSessionFiles, sessionError } from './session-files.mjs';
 // Optional, localhost-only visual editor for existing Archify architecture candidates.
 // The canonical renderer, candidate and delivery evidence stay under Archify's control.
+import {assertFontFields} from '../renderers/shared/font-size.mjs';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -35,7 +37,8 @@ if (!inside(input) || !fs.statSync(input, { throwIfNoEntry: false })?.isFile()) 
   console.error('候选文件必须位于当前项目目录内，且已存在。');
   process.exit(1);
 }
-const canonical = JSON.parse(fs.readFileSync(input, 'utf8'));
+const sessionFiles = createSessionFiles(root, [input]);
+const canonical = JSON.parse(sessionFiles.read(input, 'utf8'));
 if (canonical.diagram_type !== 'architecture' || canonical.schema_version !== 1) {
   console.error('可视化编辑器目前仅支持 architecture / schema_version 1。');
   process.exit(1);
@@ -48,6 +51,8 @@ if (!inside(output) || !inside(outputParent) || !inside(existingOutput)
   console.error('候选图的 meta.output 不在当前项目目录内。');
   process.exit(1);
 }
+sessionFiles.bind(output);
+sessionFiles.assert();
 const originalMeta = { output: canonical.meta.output, repository: canonical.meta.repository };
 const routePipeline = createRoutePreviewPipeline((candidate, { signal }) =>
   renderArchifyRoutes({
@@ -69,10 +74,12 @@ function respond(res, code, body, mime) {
 const stamp = () => new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14) + '-' + randomBytes(3).toString('hex');
 function runCli(args) {
   if (canonical.meta.repository && !args.includes('--repo-root')) args.push('--repo-root', repoRoot);
+  sessionFiles.assert();
   const result = spawnSync(process.execPath, [cli, ...args], {
     cwd: root, encoding: 'utf8', timeout: 120000, maxBuffer: 5_000_000,
     windowsHide: true,
   });
+  sessionFiles.assert();
   let parsed;
   try { parsed = JSON.parse(result.stdout?.trim() || '{}'); } catch { parsed = {}; }
   return {
@@ -91,16 +98,17 @@ async function onImagePreview(req, res) {
     if (!validCandidateMetadata(candidate)) return json(res, 400, {ok:false,message:'预览元数据不合法'});
     temporary = path.join(path.dirname(input), `candidate.image-${stamp()}.json`);
     preview = path.join(path.dirname(input), `image-preview-${stamp()}.html`);
+    sessionFiles.assert();
     fs.writeFileSync(temporary, JSON.stringify(candidate), {flag:'wx'});
     const rendered = runCli(['render','architecture',temporary,preview,'--quality',
       candidate.meta?.quality_profile === 'standard' ? 'standard' : 'showcase']);
     // render emits text, rather than a JSON receipt; its exit code is authoritative.
     if (!rendered.renderOk) return json(res, 422, {ok:false,message:rendered.message});
-    const html = fs.readFileSync(preview,'utf8');
+    const html = sessionFiles.read(preview,'utf8');
     return json(res,200,{ok:true,html,status:'draft-render',message:'正式渲染器生成的草稿，尚未完成 finalize 和视觉验收'});
-  } catch(error) { return json(res,422,{ok:false,message:error.message}); }
+  } catch(error) { const failure = sessionError(error,422); return json(res,failure.status,failure.body); }
   finally {
-    for (const file of [temporary,preview]) if(file) try { fs.unlinkSync(file); } catch {}
+    for (const file of [temporary,preview]) if(file) try { sessionFiles.assert(); fs.unlinkSync(file); } catch {}
   }
 }
 async function readJSON(req) {
@@ -113,6 +121,7 @@ async function readJSON(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 function validCandidateMetadata(next) {
+  assertFontFields(next);
   return next && Array.isArray(next.components) && (next.connections===undefined||Array.isArray(next.connections))
     && next.diagram_type === 'architecture' && next.schema_version === 1
     && next.meta?.output === originalMeta.output
@@ -128,11 +137,13 @@ async function onRoutePreview(req, res) {
     if (!validCandidateMetadata(candidate)) {
       return json(res, 400, {ok:false,message:'预览输入格式或元数据不合法'});
     }
+    sessionFiles.assert();
     const result = await routePipeline.get(candidate, { signal: controller.signal });
+    sessionFiles.assert();
     if (!res.destroyed) json(res, 200, {ok:true,source:'archify-render',...result});
   } catch (error) {
-    if (!res.destroyed) json(res, error.code === 'PREVIEW_BUSY' ? 429 : 422,
-      {ok:false,message:error.message});
+    if (!res.destroyed) json(res, error.status || (error.code === 'PREVIEW_BUSY' ? 429 : 422),
+      sessionError(error).body);
   }
 }
 let busy = false;
@@ -142,7 +153,7 @@ async function onSave(req, res) {
   let temporary;
   try {
     const request = await readJSON(req);
-    const currentBytes = fs.readFileSync(input);
+    const currentBytes = sessionFiles.read(input);
     if (hash(currentBytes) !== request.expectedHash) {
       return json(res, 409, { ok: false, message: 'candidate.json 已被其他程序更改，请刷新编辑器后重试，或先导出当前修改。' });
     }
@@ -154,6 +165,7 @@ async function onSave(req, res) {
       return json(res, 413, { ok: false, message: '图内容超出 1 MB 限制。' });
     }
     temporary = path.join(path.dirname(input), `candidate.editor-${stamp()}.json`);
+    sessionFiles.assert();
     fs.writeFileSync(temporary, JSON.stringify(next, null, 2) + '\n', { flag: 'wx' });
     // Gate content and composition BEFORE changing the user's canonical file.
     const quality = next.meta?.quality_profile === 'standard' ? 'standard' : 'showcase';
@@ -162,14 +174,16 @@ async function onSave(req, res) {
       return json(res, 422, { ok: false, stage: 'validate', message: validation.message,
         note: '原始文件未更改。可调整布局；大型自由排布画布可在右侧把质量档位切为 standard 再保存。' });
     }
-    if (hash(fs.readFileSync(input)) !== request.expectedHash) {
+    if (hash(sessionFiles.read(input)) !== request.expectedHash) {
       return json(res, 409, { ok: false, message: '在校验期间文件已变化，请先刷新或导出草稿。' });
     }
     const backup = path.join(path.dirname(input), `candidate.backup-${stamp()}.json`);
-    fs.copyFileSync(input, backup, fs.constants.COPYFILE_EXCL);
+    sessionFiles.assert();
+    fs.writeFileSync(backup, currentBytes, { flag: 'wx' });
+    sessionFiles.assert();
     fs.renameSync(temporary, input);
     temporary = undefined;
-    const latestHash = hash(fs.readFileSync(input));
+    const latestHash = hash(sessionFiles.read(input));
     const receiptFolder = path.join(path.dirname(input), `editor-review-${stamp()}`);
     const finalization = runCli(['finalize', 'architecture', input, output,
       '--quality', quality, '--out-dir', receiptFolder, '--json']);
@@ -181,9 +195,10 @@ async function onSave(req, res) {
     json(res, 200, { ok: true, expectedHash: latestHash, backup,
       message: 'JSON 已保存；Archify 的 validate、deliver、check、browser-check 全部通过。' });
   } catch (error) {
-    json(res, 500, { ok: false, message: error.message });
+    const failure = sessionError(error, error.code==='INVALID_FONT_SIZE'?422:500);
+    json(res, failure.status, failure.body);
   } finally {
-    if (temporary) try { fs.unlinkSync(temporary); } catch {}
+    if (temporary) try { sessionFiles.assert(); fs.unlinkSync(temporary); } catch {}
     busy = false;
   }
 }
@@ -224,7 +239,7 @@ const server = http.createServer((req, res) => {
     return respond(res,200,fs.readFileSync(path.join(editorDir,'batch-fonts.mjs')),'text/javascript; charset=utf-8');
   }
   const sharedModule=route?.slice((base+'/shared/').length);
-  if(req.method==='GET'&&route?.startsWith(base+'/shared/')&&['text-style.mjs','text-fit.mjs','utils.mjs','i18n.mjs','architecture-position.mjs'].includes(sharedModule)) {
+  if(req.method==='GET'&&route?.startsWith(base+'/shared/')&&['font-size.mjs','text-style.mjs','text-fit.mjs','display-primitives.mjs','architecture-position.mjs'].includes(sharedModule)) {
     return respond(res,200,fs.readFileSync(path.join(editorDir,'../renderers/shared',sharedModule)),'text/javascript; charset=utf-8');
   }
   if (req.method === 'GET' && route === base + '/auto-layout.mjs') {
@@ -237,18 +252,22 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === 'GET' && route === base + '/api/spec') {
     try {
-      const raw = fs.readFileSync(input);
+      const raw = sessionFiles.read(input);
       const candidate=JSON.parse(raw);
       if(!validCandidateMetadata(candidate))return json(res,422,{ok:false,message:'候选文件结构或受保护元数据不合法'});
       return json(res, 200, { candidate, expectedHash: hash(raw), target: output, input });
     } catch(error) {
-      return json(res, error.code==='ENOENT'?404:error instanceof SyntaxError?422:500,
-        {ok:false,message:error.message});
+      return json(res, error.status|| (error.code==='ENOENT'?404:(error instanceof SyntaxError||error.code==='INVALID_FONT_SIZE')?422:500),
+        sessionError(error).body);
     }
   }
   if (req.method === 'GET' && route === base + '/original') {
-    if (!fs.existsSync(output)) return respond(res, 404, 'Original HTML not found', 'text/plain');
-    return respond(res, 200, fs.readFileSync(output), 'text/html; charset=utf-8');
+    try {
+      return respond(res, 200, sessionFiles.read(output), 'text/html; charset=utf-8');
+    } catch (error) {
+      const failure = sessionError(error);
+      return json(res, failure.status, failure.body);
+    }
   }
   if (req.method === 'POST' && route === base + '/api/save') {
     if (req.headers.origin !== `http://${host}` || req.headers['x-archify-editor'] !== '1'

@@ -39,6 +39,7 @@ const monorepoOnly = new Map([
   ['cursor-onboarding.test.mjs', 'parent archify.zip'],
   ['drawio-editor-browser.test.mjs', 'Chrome/CDP flaky under skill-only install'],
   ['drawio-font-editing-browser.test.mjs', 'Chrome CDP Page.navigate timeout under skill-only full suite'],
+  ['drawio-boundary-title-offset-browser.test.mjs', 'Chrome CDP browser test (parent monorepo inventory)'],
   ['editor-state-browser.test.mjs', 'Chrome CDP Page.navigate timeout under skill-only install'],
   ['finalize.test.mjs', 'spawnSync 30s timeout under skill-only full suite (viewport warning CLI)'],
   ['gallery.test.mjs', 'parent scripts/build-gallery.mjs'],

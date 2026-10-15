@@ -352,7 +352,7 @@ test('Export cleanup preserves canonical artifacts and live interaction state', 
         emptyClean, emptyUnchanged: emptyBefore === empty.outerHTML };
     })()`);
     assert.deepEqual(result, { clean: true, twiceClean: true, unchanged: true, idempotent: true,
-      authored: true, labels: ['original', null, null], restorationRecords: 0, shares: false,
+      authored: true, labels: ['original', '', null], restorationRecords: 0, shares: false,
       emptyClean: true, emptyUnchanged: true });
     records.push({ label: 'restoration', ...result });
   });

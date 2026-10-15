@@ -796,6 +796,9 @@ export async function runFinalize({
       };
 
       if (stage === 'deliver' && status === 'pass') {
+        // Keep non-blocking locale warnings in both successful receipts. A
+        // later failed gate replaces these with its own actionable diagnostics.
+        receipt.diagnostics = (stageReceipt.diagnostics || []).filter((entry) => entry?.severity === 'warning');
         receipt.stages.validate = {
           status: 'pass',
           exitCode: 0,

@@ -16,7 +16,7 @@
 // `minimum` font sizes are not, because renderers set node text at different
 // sizes (architecture sublabels are 9px, the rest are 7px).
 
-import { textUnits, SEMANTIC_SIGIL_INSET, SEMANTIC_SIGIL_SIZE, SEMANTIC_SIGIL_FOOTPRINT, SOURCE_BADGE_FOOTPRINT } from './utils.mjs';
+import { textUnits, SEMANTIC_SIGIL_INSET, SEMANTIC_SIGIL_SIZE, SEMANTIC_SIGIL_FOOTPRINT, SOURCE_BADGE_FOOTPRINT } from './display-primitives.mjs';
 
 // widthFactor: px of advance width per text unit, per px of font size.
 // horizontalPadding: total px reserved inside the box so text never touches

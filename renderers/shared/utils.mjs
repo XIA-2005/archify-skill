@@ -1,3 +1,6 @@
+import { arrowGeometry, createCards, textUnits, SEMANTIC_SIGIL_INSET, SEMANTIC_SIGIL_SIZE, SEMANTIC_SIGIL_FOOTPRINT, SOURCE_BADGE_FOOTPRINT } from './display-primitives.mjs';
+export { arrowGeometry, createCards, textUnits, SEMANTIC_SIGIL_INSET, SEMANTIC_SIGIL_SIZE, SEMANTIC_SIGIL_FOOTPRINT, SOURCE_BADGE_FOOTPRINT };
+import {assertFontFields, assertFontSize, assertFontSizes} from './font-size.mjs';
 import {
   escapeHtml as esc,
   localizeTemplate,
@@ -8,13 +11,11 @@ import {
 
 export { esc };
 
-export function arrowGeometry(scale = 1) {
-  // Leave one scaled unit past the apex; retain the earlier local clipping fix.
-  return { markerWidth: 11 * scale, markerHeight: 7 * scale, refX: 9 * scale, refY: 3.5 * scale,
-    points: `0 0, ${10 * scale} ${3.5 * scale}, 0 ${7 * scale}` };
-}
 
-export function renderDefinitions({ fixedArrows = false, clipArrows = false, arrowScale = 1 } = {}) {
+// Accept upstream type-owned definitions and Xia's explicit arrow controls.
+export function renderDefinitions(options = {}) {
+  const extra = typeof options === 'string' ? options : '';
+  const { fixedArrows = false, clipArrows = false, arrowScale = 1 } = typeof options === 'object' ? options : {};
   const units = fixedArrows ? ' markerUnits="userSpaceOnUse"' : '';
   const g = arrowGeometry(arrowScale);
   if (!fixedArrows && !clipArrows) g.markerWidth = 10 * arrowScale;
@@ -34,7 +35,7 @@ export function renderDefinitions({ fixedArrows = false, clipArrows = false, arr
           </marker>
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
             <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
-          </pattern>
+          </pattern>${extra}
         </defs>`;
 }
 
@@ -82,10 +83,13 @@ const SIGIL_SHAPE = {
             <path d="m7 5.4 3.6 2.6L7 10.6Z" class="sigil-fill"/>`,
   active: `<path d="M2 8h3l1.5-3.5L9 12l1.6-4H14"/>`,
   waiting: `<path d="M4 2.5h8M4 13.5h8M5 3c0 2.8 2 3.2 3 5-1 1.8-3 2.2-3 5M11 3c0 2.8-2 3.2-3 5 1 1.8 3 2.2 3 5"/>`,
+  decision: `<path d="M8 2.2 13.8 8 8 13.8 2.2 8Z"/>`,
   success: `<circle cx="8" cy="8" r="5.3"/>
             <path d="m5.2 8 1.8 1.8 3.8-4"/>`,
   failure: `<circle cx="8" cy="8" r="5.3"/>
             <path d="m5.7 5.7 4.6 4.6m0-4.6-4.6 4.6"/>`,
+  stop: `<circle cx="8" cy="8" r="5.3"/>
+            <rect x="6.1" y="6.1" width="3.8" height="3.8" rx=".5" class="sigil-fill"/>`,
   neutral: `<rect x="3" y="3" width="10" height="10" rx="2"/>
             <circle cx="8" cy="8" r="1.2" class="sigil-fill"/>`,
 };
@@ -95,14 +99,6 @@ const SIGIL_SHAPE = {
 // viewer overlay, so it survives canonical export while adding no focus target,
 // accessible name, layout box, or interaction state of its own.
 // Shared with label clearance so the reserved rail matches the actual icon.
-export const SEMANTIC_SIGIL_INSET = 6;
-export const SEMANTIC_SIGIL_SIZE = 11;
-export const SEMANTIC_SIGIL_FOOTPRINT = SEMANTIC_SIGIL_INSET + SEMANTIC_SIGIL_SIZE;
-// The viewer installs a runtime "sources" beacon on the node's top-right
-// rail, just left of the brand mark. Layout must reserve the same footprint
-// so labels never sit under the badge.
-export const SOURCE_BADGE_FOOTPRINT = 38;
-
 export function renderSemanticSigil(kind, { x, y, size = SEMANTIC_SIGIL_SIZE, icon } = {}) {
   if (icon === 'none') return '';
   const selected = icon ?? kind;
@@ -115,7 +111,8 @@ export function renderSemanticSigil(kind, { x, y, size = SEMANTIC_SIGIL_SIZE, ic
 }
 
 export function renderCards(cards) {
-  const fontStyle = size => size == null ? '' : ` style="font-size:${size}px;line-height:1.5;overflow-wrap:anywhere"`;
+  assertFontFields(cards);
+  const fontStyle = size => size == null ? '' : ` style="font-size:${assertFontSize(size)}px;line-height:1.5;overflow-wrap:anywhere"`;
   const list = Array.isArray(cards) ? cards : [];
   return `    <!-- Info Cards -->
     <div class="cards">
@@ -131,6 +128,7 @@ ${card.items.map((item, index) => `          <li${fontStyle(card.font_sizes?.ite
     </div>`;
 }
 
+
 const SVG_SLOT_RE = /      <!-- ARCHIFY:SVG_SLOT_START -->[\s\S]*?      <!-- ARCHIFY:SVG_SLOT_END -->/;
 const CARDS_SLOT_RE = /    <!-- ARCHIFY:CARDS_SLOT_START -->[\s\S]*?    <!-- ARCHIFY:CARDS_SLOT_END -->/;
 const SUBTITLE_SLOT_RE = /^([ \t]*)<p class="subtitle">\[Subtitle description\]<\/p>[ \t]*(\r?\n)?/m;
@@ -145,7 +143,7 @@ function serializeScriptJson(value) {
 }
 
 const TEMPLATE_PLACEHOLDERS = [
-  '<html lang="en" data-theme="dark" data-preset="[VISUAL PRESET]">',
+  '<html lang="en" data-theme="light" data-preset="[VISUAL PRESET]">',
   '<title>[PROJECT NAME] Architecture Diagram</title>',
   '<h1>[PROJECT NAME] Architecture</h1>',
   I18N_PLACEHOLDER,
@@ -161,6 +159,7 @@ export function applyTemplate(template, {
   sourceEvidence = null,
   fontSizes = {},
 }) {
+  assertFontSizes(fontSizes);
   if (!SVG_SLOT_RE.test(template)) {
     throw new Error('applyTemplate: template missing ARCHIFY:SVG_SLOT sentinel');
   }
@@ -192,7 +191,7 @@ export function applyTemplate(template, {
   const i18nData = `    <script id="archify-i18n-data" type="application/json">${i18nJson}</script>`;
   return localizeTemplate(template, resolvedLocale)
     .replace(I18N_PLACEHOLDER, () => i18nData)
-    .replace(TEMPLATE_PLACEHOLDERS[0], () => `<html lang="${esc(resolvedLocale)}" data-theme="dark" data-preset="${esc(visualPreset)}">`)
+    .replace(TEMPLATE_PLACEHOLDERS[0], () => `<html lang="${esc(resolvedLocale)}" data-theme="light" data-preset="${esc(visualPreset)}">`)
     .replace(TEMPLATE_PLACEHOLDERS[1], () => `<title>${esc(translateMessage(resolvedLocale, 'page.title', { title }))}</title>`)
     .replace(TEMPLATE_PLACEHOLDERS[2], () => `<h1${fontSizes.title == null ? '' : ` style="font-size:${fontSizes.title}px;line-height:1.3;overflow-wrap:anywhere"`}>${esc(title)}</h1>`)
     .replace(SUBTITLE_SLOT_RE, (_match, indent, newline = '') => renderedSubtitle
@@ -203,63 +202,4 @@ export function applyTemplate(template, {
     .replace(SOURCE_EVIDENCE_PLACEHOLDER, () => sourceEvidence
       ? `    <script id="archify-source-evidence-data" type="application/json">${sourceEvidenceJson}</script>`
       : '');
-}
-
-// CJK and other wide/fullwidth glyphs render at roughly twice the advance
-// width of ASCII in the monospace stacks the template uses. Keep halfwidth
-// forms (notably U+FF61–U+FF9F Katakana) out of this set. The explicit ranges
-// also cover vertical punctuation and supplementary East Asian scripts that
-// literal glyph ranges made difficult to audit.
-// Code points that take two columns of advance width: East Asian Wide and
-// Fullwidth per UAX #11, tracking Unicode 17.0. That takes in the BMP symbols
-// carrying emoji presentation (U+2705, U+2B50, U+26A1, U+231B, ...), which
-// render at the same square advance as the supplementary-plane emoji already
-// listed here, and Hangul Jamo Extended-A. Two boundary calls worth naming:
-// Unicode 16.0 reclassified the trigrams (U+2630-U+2637) and the monogram /
-// digram symbols (U+268A-U+268F) from Neutral to Wide, so both are in; and
-// Hangul Jamo Extended-A stops at U+A97C, its last assigned jamo, because
-// U+A97D-U+A97F are unassigned, and unassigned code points outside the CJK
-// ranges UAX #11 names default to Neutral rather than Wide. Spelled out as
-// ranges because V8 has no \p{East_Asian_Width=W} property escape.
-const FULLWIDTH_RE = /[\u1100-\u115F\u231A-\u231B\u2329-\u232A\u23E9-\u23EC\u23F0\u23F3\u25FD-\u25FE\u2614-\u2615\u2630-\u2637\u2648-\u2653\u267F\u268A-\u268F\u2693\u26A1\u26AA-\u26AB\u26BD-\u26BE\u26C4-\u26C5\u26CE\u26D4\u26EA\u26F2-\u26F3\u26F5\u26FA\u26FD\u2705\u270A-\u270B\u2728\u274C\u274E\u2753-\u2755\u2757\u2795-\u2797\u27B0\u27BF\u2B1B-\u2B1C\u2B50\u2B55\u2E80-\uA4CF\uA960-\uA97C\uAC00-\uD7A3\uF900-\uFAFF\uFE10-\uFE19\uFE30-\uFE6F\uFF01-\uFF60\uFFE0-\uFFE6\u{16FE0}-\u{18DFF}\u{1AFF0}-\u{1AFFF}\u{1B000}-\u{1B2FF}\u{1F000}-\u{1FAFF}\u{20000}-\u{3FFFD}]/u;
-
-// Variation selectors contribute no separate unit. This is a conservative
-// width estimate, not a measurement of the selected glyph: its actual advance
-// depends on the font and presentation (Unicode UAX #11).
-// VS16 requests emoji presentation, so reserve two units for the sequence.
-// VS15 retains the base's width estimate; forcing every text-presentation
-// sequence to one unit undercounts wide bases, including CJK characters whose
-// font ignores that selector. Neutral bases remain one unit. Some selected
-// text glyphs can be narrower than this estimate; prefer extra space to overflow.
-const VARIATION_SELECTOR_FIRST = 0xfe00;
-const VARIATION_SELECTOR_LAST = 0xfe0f;
-const VARIATION_SELECTOR_EMOJI = 0xfe0f;
-
-// Width measurement is pure and the same labels are measured many times per
-// compile, so the unit count is memoized by its input string.
-const TEXT_UNITS_CACHE = new Map();
-const MAX_TEXT_UNITS_CACHE_ENTRIES = 4096;
-const MAX_CACHED_TEXT_LENGTH = 1024;
-
-export function textUnits(text) {
-  const cacheKey = String(text ?? '');
-  const cachedUnits = TEXT_UNITS_CACHE.get(cacheKey);
-  if (cachedUnits !== undefined) return cachedUnits;
-  const chars = Array.from(cacheKey);
-  let units = 0;
-  for (let i = 0; i < chars.length; i += 1) {
-    const codePoint = chars[i].codePointAt(0);
-    if (codePoint >= VARIATION_SELECTOR_FIRST && codePoint <= VARIATION_SELECTOR_LAST) continue;
-    const next = i + 1 < chars.length ? chars[i + 1].codePointAt(0) : -1;
-    if (next === VARIATION_SELECTOR_EMOJI) units += 2;
-    else units += FULLWIDTH_RE.test(chars[i]) ? 2 : 1;
-  }
-  // Keep repeated in-process compiles bounded, including unusually long labels.
-  if (cacheKey.length <= MAX_CACHED_TEXT_LENGTH) {
-    if (TEXT_UNITS_CACHE.size >= MAX_TEXT_UNITS_CACHE_ENTRIES) {
-      TEXT_UNITS_CACHE.delete(TEXT_UNITS_CACHE.keys().next().value);
-    }
-    TEXT_UNITS_CACHE.set(cacheKey, units);
-  }
-  return units;
 }

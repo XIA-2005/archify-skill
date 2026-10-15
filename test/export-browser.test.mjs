@@ -96,7 +96,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode });
   }
   async function click(selector) {
-    const point = await run(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})()`);
+    const point = await run(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});el.scrollIntoView({block:"nearest"});const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})()`);
     await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
   }
@@ -133,7 +133,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     for (const width of [390, 720, 1440]) {
       await load({ width, extra: '&fault=unsupported' });
       assert.deepEqual(await run('Object.keys(Archify.exportMenu).sort()'), ['close','downloadReachShareCard','downloadRouteShareCard','isOpen','open','run','shareCard','syncReachShare','syncRouteShare'].sort());
-      assert.deepEqual(await run('Object.keys(Archify.motion).sort()'), ['canEncodeGif','canRecord','recordGif','recordWebm']);
+      assert.deepEqual(await run('Object.keys(Archify.motion).sort()'), ['canEncodeGif','canRecord','motionDurationMs','previewGif','recordGif','recordWebm']);
       assert.deepEqual(await run(`[...document.querySelectorAll('#export-menu [data-format="jpeg"],#export-menu [data-format="webp"],#export-menu [data-format="webm"],#export-menu [data-action="copy"]')].map(e=>e.disabled)`), [true,true,true,true]);
       await run(`document.getElementById('btn-export').focus()`);
       await key('ArrowUp', 'ArrowUp', 38);
@@ -613,7 +613,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     await click('[data-format="webm"]');
     await run('exportWait(()=>exportDownloads.length===1)');
     assert.equal(await run(`document.documentElement.getAttribute('data-last-export-format')`), 'webm');
-    assert.equal(await run(`(async()=>{const url=URL.createObjectURL(exportDownloads[0].blob),v=document.createElement('video');v.src=url;await new Promise((resolve,reject)=>{v.onloadedmetadata=resolve;v.onerror=reject;});const duration=v.duration;v.removeAttribute('src');v.load();URL.revokeObjectURL(url);return duration;})()`), 6);
+    assert.equal(await run(`(async()=>{const url=URL.createObjectURL(exportDownloads[0].blob),v=document.createElement('video');v.src=url;await new Promise((resolve,reject)=>{v.onloadedmetadata=resolve;v.onerror=reject;});const duration=v.duration;v.removeAttribute('src');v.load();URL.revokeObjectURL(url);return duration;})()`), 4);
     await run('Archify.exportMenu.open()');
     await click('[data-action="transparent-background"]');
     await run('window.VideoEncoder=undefined');
@@ -705,7 +705,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     await record('gif-frame-rates');
   });
 
-  await t.test('GIF decodes looping motion and binary transparency without MediaRecorder or trace mode', async () => {
+  await t.test('GIF decodes a repeating single-pass clip and binary transparency without MediaRecorder or trace mode', async () => {
     for (const [transparent,theme] of [[false,'dark'],[false,'light'],[true,'dark'],[true,'light']]) {
       await load({theme});
       const result=await run(`(async()=>{
@@ -744,7 +744,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     await run('exportWait(()=>exportDownloads.length===1)');
     const state=await record('gif-menu');
     assert.equal(state.receipt['data-last-export-format'],'gif');assert.ok(state.downloads[0].name.endsWith('.gif'));
-    assert.equal(await run(`(async()=>{const decoder=new ImageDecoder({data:await exportDownloads[0].blob.arrayBuffer(),type:'image/gif'});await decoder.tracks.ready;const count=decoder.tracks.selectedTrack.frameCount;decoder.close();return count;})()`),72);
+    assert.equal(await run(`(async()=>{const decoder=new ImageDecoder({data:await exportDownloads[0].blob.arrayBuffer(),type:'image/gif'});await decoder.tracks.ready;const count=decoder.tracks.selectedTrack.frameCount;decoder.close();return count;})()`),48);
     await load();
     const failed=await run(`(async()=>{const native=CanvasRenderingContext2D.prototype.getImageData,offscreen=OffscreenCanvas;window.OffscreenCanvas=undefined;CanvasRenderingContext2D.prototype.getImageData=()=>{throw Error('gif pixels unavailable');};let message='';try{await Archify.motion.recordGif({duration:250});}catch(e){message=e.message;}finally{CanvasRenderingContext2D.prototype.getImageData=native;window.OffscreenCanvas=offscreen;}await new Promise(r=>setTimeout(r,0));return {message,revoked:[...exportUrls.values()].every(u=>u.revoked)};})()`);
     assert.deepEqual(failed,{message:'gif pixels unavailable',revoked:true});

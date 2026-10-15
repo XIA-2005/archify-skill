@@ -1,6 +1,6 @@
 import {DEFAULT_COMPONENT_SIZE} from './architecture-position.mjs';
 import { fittedNodeFontSize } from './text-fit.mjs';
-import { textUnits } from './utils.mjs';
+import { textUnits } from './display-primitives.mjs';
 
 export function textSize(owner, key, fallback) {
   return owner?.font_sizes?.[key] ?? fallback;

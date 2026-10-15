@@ -75,6 +75,7 @@ test('GIF drawing never reads authored edge or node delays', () => {
 
 test('GIF createMotionScene zeros delays and carries encoder durationSec', () => {
   const edge = {
+    getAttribute() { return null; },
     style: { getPropertyValue() { throw new Error('authored step read'); } },
     getTotalLength() { return 100; },
     getPointAtLength(x) { return { x, y: 0 }; },
@@ -143,6 +144,7 @@ test('flow speed UI defaults to 4s and maps option values onto durationSec', () 
       getComputedStyle() { return { stroke: '#22d3ee', strokeWidth: '2', getPropertyValue() { return ''; } }; },
     });
     const edge = {
+      getAttribute() { return null; },
       style: { getPropertyValue() { return ''; } },
       getTotalLength() { return 100; },
       getPointAtLength(x) { return { x, y: 0 }; },

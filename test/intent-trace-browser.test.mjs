@@ -145,6 +145,7 @@ test('Intent Trace preserves input handoffs, transient geometry and cleanup', {
 
   await t.test('hover signals have equal screen size and paint above solid and dashed routes', async () => {
     await load();
+    await run('Archify.motionGovernor.resume()');
     for (const zoom of [1, 0.8]) {
       await run(`document.querySelector('.diagram-container > svg').style.transition='none'; document.querySelector('.diagram-container > svg').style.transform='scale(${zoom})'; new Promise(requestAnimationFrame)`);
       assert.equal(await run("Archify.intentTrace.clear(); Archify.intentTrace.show('api')"), true);
@@ -163,7 +164,7 @@ test('Intent Trace preserves input handoffs, transient geometry and cleanup', {
       for(const signal of signals){
         assert.ok(Math.abs(signal.dash-24)<.02,JSON.stringify(signal));
         assert.ok(Math.abs(signal.width-3.1)<.02,JSON.stringify(signal));
-        assert.equal(signal.clones,1);assert.equal(signal.opacity,'0.94');assert.ok(Math.abs(signal.blur-2)<.02,JSON.stringify(signal));
+        assert.equal(signal.clones,1);assert.equal(signal.opacity,'0.94',JSON.stringify(signal));assert.ok(Math.abs(signal.blur-2)<.02,JSON.stringify(signal));
         assert.equal(signal.normalized,false);assert.equal(signal.vector,'none');assert.equal(signal.above,true);
       }
       assert.ok(signals[0].length/signals[1].length>8);
@@ -315,7 +316,9 @@ test('Intent Trace preserves input handoffs, transient geometry and cleanup', {
   });
 
   await t.test('real CSS completion, Motion ownership, reduced motion and themes preserve previews', async () => {
-    await load('trace'); await run(`intentWait(()=>document.documentElement.getAttribute('data-ambient-motion')==='settled')`);
+    await load('trace');
+    await run('Archify.motionGovernor.resume()');
+    assert.equal(await run(`document.documentElement.getAttribute('data-ambient-motion')`), 'running');
     await move('api'); await run(`intentWait(()=>Archify.motionGovernor.owner()==='intent')`);
     await run(`intentWait(()=>intentEnds.some(e=>e.trusted&&e.name==='archify-intent-trace-flow'))`);
     assert.equal((await snapshot('animation-complete')).active, 'api');

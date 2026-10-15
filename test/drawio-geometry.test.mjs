@@ -24,6 +24,28 @@ test('native frame and exact normalized ports survive canonical rendering',()=>{
   const rect=r.html.match(/<rect[^>]*data-composition-frame-id="0"[^>]*>/)?.[0];assert.ok(rect);
   for(const [i,key]of ['x','y','width','height'].entries())assert.ok(rect.includes(`${key}="${s.boundaries[0].bounds[i]}"`),rect);
 });
+test('automatic routing preserves native ports without explicit waypoints',()=>{
+  for(const pinned of ['fromPort','toPort','both']){
+    const s=fixture();delete s.connections[0].via;
+    if(pinned==='fromPort')delete s.connections[0].toPort;
+    if(pinned==='toPort')delete s.connections[0].fromPort;
+    const before=structuredClone(s),r=render(s);assert.equal(r.status,0,r.stderr);
+    const points=extractArchifyRoutes(r.html,1)[0].points;
+    if(pinned!=='toPort')assert.deepEqual(points[0],[380,220],'source port stays at the authored fraction');
+    if(pinned!=='fromPort')assert.deepEqual(points.at(-1),[600,260],'target port stays at the authored fraction');
+    assert.deepEqual(s,before,'routing cannot rewrite native editing intent');
+  }
+});
+test('styled native labels retain arrow clearance checks at every line width',()=>{
+  for(const lineScale of [1,2,4]){
+    const s=fixture();s.meta.line_scale=lineScale;
+    s.connections[0].label='Request';s.connections[0].font_sizes={label:14};
+    assert.equal(render(s).status,0,'an unpinned styled label has room beside its route');
+    s.connections[0].labelAt=[600,260];
+    const blocked=render(s);assert.notEqual(blocked.status,0);
+    assert.match(blocked.stderr,/label-arrow-overlap/,'a pinned label cannot cover its arrow');
+  }
+});
 test('invalid frame and port edits fail without weakening the schema',()=>{
   for(const value of [[1,2,0,4],[-1,2,3,4],[1,2,3]]){const s=fixture();s.boundaries[0].bounds=value;assert.equal(architecture(s),false);}
   for(const value of [[1.1,0],[-0.1,1],[0]]){const s=fixture();s.connections[0].fromPort=value;assert.equal(architecture(s),false);}

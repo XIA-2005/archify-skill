@@ -148,13 +148,9 @@ expectFailure('column beyond layout maximum', 'workflow',
   (d) => { d.nodes[0].col = 7; }, '<= 5');
 expectFailure('missing schema_version', 'sequence',
   (d) => { delete d.schema_version; }, 'schema_version');
-expectFailure('cross-lane state overlap', 'lifecycle',
-  (d) => {
-    const approval = d.states.find((s) => s.id === 'approval');
-    const failed = d.states.find((s) => s.id === 'failed');
-    delete failed.yOffset;
-    failed.col = approval.col;
-  }, 'less than 10px apart');
+expectFailure('main-path step without a transition', 'lifecycle',
+  (d) => { d.transitions = d.transitions.filter((t) => !(t.from === 'queued' && t.to === 'planning')); },
+  'mainPath step "queued" -> "planning" has no transition');
 expectFailure('zero component width rejected by schema', 'architecture',
   (d) => { d.components[0].size = [0, 60]; }, '/components/0/size/0');
 expectFailure('zero component height rejected by schema', 'architecture',

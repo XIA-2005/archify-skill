@@ -57,7 +57,6 @@ try{
   const beforeTheme=await themeDraft();
   const beforeRoute=await evaluate(`document.querySelector('[data-rendered-route]').getAttribute('d')`);
   const beforeUndo=await evaluate(`document.getElementById('undo').disabled`);
-  await mouseOn('#theme-toggle');
   assert.equal(await evaluate(`document.documentElement.dataset.theme`),'light');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.stage')).backgroundColor`),'rgb(248, 251, 255)');
   assert.equal(await evaluate(`document.querySelector('[data-node-id] rect').getAttribute('fill')`),'#eaf3fd');
@@ -67,14 +66,15 @@ try{
   const evidence=process.env.ARCHIFY_EDITOR_THEME_EVIDENCE;
   if(evidence){fs.mkdirSync(evidence,{recursive:true});await call('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
     const shot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(evidence,'editor-light.png'),Buffer.from(shot.result.data,'base64'));}
-  await call('Page.reload');
-  await waitFor(async()=>await evaluate(`document.querySelectorAll('[data-node-id]').length`)===source.components.length);
-  await waitFor(()=>routeReady(source.connections.length));
-  assert.equal(await evaluate(`document.documentElement.dataset.theme`),'light');
   await mouseOn('#theme-toggle');
   assert.equal(await evaluate(`document.documentElement.dataset.theme`),'dark');
   assert.equal(await themeDraft(),beforeTheme);
   if(evidence){const shot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(evidence,'editor-dark.png'),Buffer.from(shot.result.data,'base64'));}
+  await call('Page.reload');
+  await waitFor(async()=>await evaluate(`document.querySelectorAll('[data-node-id]').length`)===source.components.length);
+  await waitFor(()=>routeReady(source.connections.length));
+  assert.equal(await evaluate(`document.documentElement.dataset.theme`),'dark');
+  assert.equal(await themeDraft(),beforeTheme);
   console.log('PASS: native light/dark toggle recolors canvas, persists on reload, and preserves JSON, routes and undo');
 
   if(process.argv.includes('--hover-only')){

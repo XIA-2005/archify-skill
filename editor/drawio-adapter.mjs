@@ -4,6 +4,7 @@ import {componentTextGeometry} from './shared/text-style.mjs';
 // the unmodified draw.io EditorUi/Graph vendored from the user's desktop build.
 export function createDrawioAdapter(frame, callbacks) {
   let api, imported, signature, suppress=false, selectedSignature, seeded=false;
+  const lastTitleSnap=new Map();
   const nodes=new Map(), edges=new Map(), boundaries=new Map(), baseline=new Map();
   let fontHighlights=[];
   const copy=value=>structuredClone(value);
@@ -78,7 +79,15 @@ export function createDrawioAdapter(frame, callbacks) {
       if(JSON.stringify(box)!==JSON.stringify(previous.box))b.bounds=box;
       if(cellLabel(c)!==previous.label)b.label=cellLabel(c);
       const offset=c.geometry.offset?[c.geometry.offset.x,c.geometry.offset.y]:[0,0];
-      if(JSON.stringify(offset)!==JSON.stringify(previous.offset))b.labelOffset=offset.map(round);
+      // geometry.offset is draw.io's label shift; formal HTML adds labelOffset to
+      // the composed title rail. Convert through the load-time baseline so a
+      // title snapped to the official SVG does not rewrite JSON until dragged.
+      if(JSON.stringify(offset)!==JSON.stringify(previous.offset)){
+        const base=b.labelOffset||[0,0];
+        const next=[round(base[0]+offset[0]-previous.offset[0]),round(base[1]+offset[1]-previous.offset[1])];
+        // [0,0] is not authored — delete so formal layout keeps rail/slide defaults.
+        if(next[0]===0&&next[1]===0)delete b.labelOffset; else b.labelOffset=next;
+      }
       b.wraps=b.wraps.filter(id=>next.components.some(n=>n.id===id));
       return b.wraps.length?[b]:[];
     });
@@ -183,7 +192,7 @@ export function createDrawioAdapter(frame, callbacks) {
     }finally{model.endUpdate();suppress=false;}
     imported=copy(spec);signature=key;capture();ui.editor.setModified(false);
   }
-  function load(spec,routes,scene) {
+  function load(spec,routes,scene,sceneOffsets) {
     if(!api||!spec)return;
     const key=JSON.stringify(spec);
     if(key===signature && (seeded||!routes))return;
@@ -192,7 +201,9 @@ export function createDrawioAdapter(frame, callbacks) {
     if(imported&&seeded&&geometryKey(imported)===geometryKey(spec)){
       patchText(spec,key);return;
     }
-    if(routes)seeded=true;
+    // Incomplete rebuilds (no official routes and/or scene) must not keep seeded=true,
+    // or a later load(routes,scene) for the same spec early-returns and skips title snap.
+    seeded=Boolean(routes&&scene);
     const {graph,ui}=api,w=frame.contentWindow,model=graph.model;
     const remembered=graph.getSelectionCells().map(c=>[c.archifyKind,c.archifyId]);
     suppress=true;model.beginUpdate();
@@ -212,11 +223,10 @@ export function createDrawioAdapter(frame, callbacks) {
         const box=b.bounds||(rect?['x','y','width','height'].map(k=>Number(rect.getAttribute(k))):fallback);
         const cell=graph.insertVertex(parent,'boundary-'+i,b.label,...box,style({
           rounded:1,arcSize:10,fillColor:'none',strokeColor:'#647c98',dashed:1,
-          container:1,collapsible:0,recursiveResize:0,connectable:0,
+          container:1,collapsible:0,recursiveResize:0,connectable:0,movableLabel:1,
           align:'left',verticalAlign:'top',spacing:12,fontSize:b.font_sizes?.label??9,
-          fontColor:'#526b83',whiteSpace:'wrap',html:0}));
+          fontColor:'#526b83',html:0}));
         cell.archifyKind='boundary';cell.archifyId=i;cell.setConnectable(false);boundaries.set(i,cell);
-        if(b.labelOffset){const geometry=cell.geometry.clone();geometry.offset=new w.mxPoint(...b.labelOffset);model.setGeometry(cell,geometry);}
       }
       for(const n of spec.components){
         const {x,y,w:width,h}=architectureNodeBox(n,spec),box=[x,y,width,h];
@@ -254,6 +264,61 @@ export function createDrawioAdapter(frame, callbacks) {
       }
     } finally {model.endUpdate();suppress=false;}
     graph.view.validate();
+    // Formal HTML composes the title rail (layoutBoundaryTitles / slideTitleOffRoutes)
+    // then adds labelOffset. draw.io native titles sit at align/verticalAlign top-left
+    // + spacing 12. Always snap to the rail, then add authored labelOffset so inspector
+    // numbers and canvas title drags stay WYSIWYG. The official scene mask is the final
+    // title (rail + offset baked when the scene was captured). Recover the rail with
+    // sceneOffsets (offsets at capture time) when provided -- same as SVG's
+    // renderedBoundaryOffsets -- otherwise assume the mask embeds the current add.
+    // Keep last snap S0 so labelOffset-only redraws with scene=null still apply S0+add.
+    const authoredOffset=b=>{
+      const o=b.labelOffset;
+      if(!Array.isArray(o)||(Number(o[0])===0&&Number(o[1])===0))return [0,0];
+      return [Number(o[0])||0,Number(o[1])||0];
+    };
+    const applyTitleOffset=(i,sx,sy,add)=>{
+      const c=boundaries.get(i);if(!c)return;
+      const g=c.geometry.clone();
+      g.offset=new w.mxPoint(sx+add[0],sy+add[1]);
+      model.setGeometry(c,g);
+      lastTitleSnap.set(i,[sx,sy]);
+    };
+    if(scene){
+      suppress=true;model.beginUpdate();
+      try{for(const [i,b]of (spec.boundaries||[]).entries()){
+        const c=boundaries.get(i);if(!c)continue;
+        const mask=scene.querySelector('[data-graph-role="structural-frame-label"][data-composition-frame-id="'+i+'"] [data-graph-role="structural-frame-label-mask"]');
+        if(!mask)continue;
+        const g=c.geometry.clone();g.offset=new w.mxPoint(0,0);model.setGeometry(c,g);
+      }}finally{model.endUpdate();suppress=false;}
+      graph.view.validate();
+      suppress=true;model.beginUpdate();
+      try{for(const [i,b]of (spec.boundaries||[]).entries()){
+        const c=boundaries.get(i);if(!c)continue;
+        const mask=scene.querySelector('[data-graph-role="structural-frame-label"][data-composition-frame-id="'+i+'"] [data-graph-role="structural-frame-label-mask"]');
+        if(!mask)continue;
+        const add=authoredOffset(b);
+        const baked=Array.isArray(sceneOffsets?.[i])?[Number(sceneOffsets[i][0])||0,Number(sceneOffsets[i][1])||0]:add;
+        // Mask embeds baked offset; rail = mask - baked. Then offset = (rail-cur)+add.
+        const targetX=Number(mask.getAttribute('x'))-baked[0],targetY=Number(mask.getAttribute('y'))-baked[1];
+        const s=graph.view.getState(c);if(!s)continue;
+        const bounds=graph.cellRenderer.getLabelBounds(s);
+        const curX=bounds.x/graph.view.scale-graph.view.translate.x;
+        const curY=bounds.y/graph.view.scale-graph.view.translate.y;
+        applyTitleOffset(i,round(targetX-curX),round(targetY-curY),add);
+      }}finally{model.endUpdate();suppress=false;}
+      graph.view.validate();
+    }else if(lastTitleSnap.size){
+      // No official scene this frame (e.g. routeKey changed on labelOffset-only edit).
+      // Re-apply last snap S0 + current add so inspector H/V move draw.io immediately.
+      suppress=true;model.beginUpdate();
+      try{for(const [i,b]of (spec.boundaries||[]).entries()){
+        const snap=lastTitleSnap.get(i);if(!snap)continue;
+        applyTitleOffset(i,snap[0],snap[1],authoredOffset(b));
+      }}finally{model.endUpdate();suppress=false;}
+      graph.view.validate();
+    }
     // Position edge labels in the same diagram coordinates as the official SVG.
     suppress=true;model.beginUpdate();
     try{for(const [i,e]of (spec.connections||[]).entries()){
@@ -285,11 +350,27 @@ export function createDrawioAdapter(frame, callbacks) {
       for(const [name,fn]of [['undo',callbacks.undo],['redo',callbacks.redo],['save',callbacks.save]]){
         if(ui.actions.get(name))ui.actions.get(name).funct=fn;
       }
+      // Boundary titles: VertexHandler places the movableLabel diamond at cell-center +
+      // geometry.offset, which is far from a short title. After native redrawHandles,
+      // move the yellow handle onto the measured text boundingBox center (glyph).
+      const VH=w.mxVertexHandler;
+      if(VH&&!VH.prototype._archifyBoundaryLabelHandle){
+        VH.prototype._archifyBoundaryLabelHandle=true;
+        const origRedrawHandles=VH.prototype.redrawHandles;
+        VH.prototype.redrawHandles=function(){
+          origRedrawHandles.apply(this,arguments);
+          if(this.state?.cell?.archifyKind!=='boundary'||!this.labelShape)return;
+          const bb=this.state.text?.boundingBox;
+          if(!bb||!(bb.width>0)||!(bb.height>0))return;
+          this.moveSizerTo(this.labelShape,bb.x+bb.width/2,bb.y+bb.height/2);
+        };
+      }
       // Native labels are plain text; Archify's source evidence is never HTML.
       resolve();
     };window.addEventListener('message',receive);
   });
-  return {ready,load,
+  function invalidate(){signature=undefined;seeded=false;lastTitleSnap.clear();}
+  return {ready,load,invalidate,
     select(kind,id){if(!api)return;const c=kind==='node'?nodes.get(id):kind==='edge'?edges.get(id):boundaries.get(id);suppress=true;api.graph.setSelectionCell(c||null);suppress=false;},
     focus(id){if(api&&nodes.has(id))api.graph.scrollCellToVisible(nodes.get(id),true);},
     fit(){api?.graph.fit(30);},zoom(factor){if(api)api.graph.zoom(1/factor);},
