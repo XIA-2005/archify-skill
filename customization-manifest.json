@@ -6,7 +6,7 @@
   "files": [
     {
       "path": "assets/template.html",
-      "sha256": "ccab5f9a95963da6859cc476f9292b5352d9ff503dbe330bd045f55107556575"
+      "sha256": "18ec30ae165661c30c321fa5d775c6ac406228aa7366516215d5f01445cf6242"
     },
     {
       "path": "bin/delivery-update.mjs",
@@ -206,55 +206,55 @@
     },
     {
       "path": "examples/dataflow-product-analytics.html",
-      "sha256": "21335b8750881556d34bb10381b8783f30fe958a548539a5e0462468794472f8"
+      "sha256": "21f42b20f4352ff3db929cdff07e8fe215ae49679c450396b1121db38b3316b6"
     },
     {
       "path": "examples/lifecycle-agent-run.html",
-      "sha256": "dffc4de54afb4298929fc3dab58eb87a5f699bd0aae3e88ab58474e7da8bc443"
+      "sha256": "ff12382b7766b999c73018011b368079034dacc10006725d2cb0af89cf650e93"
     },
     {
       "path": "examples/locales/de.json",
-      "sha256": "b233dd1ef302daaa3fb1714865d936e6f4178f4fb1f621f959ab194408bf6087"
+      "sha256": "606025db462f426e6bbf8ddcf3a04b2d1885f6c8899a83c540cd9dafef742744"
     },
     {
       "path": "examples/locales/es.json",
-      "sha256": "11b5cd11460d065d2377f5cabf6402d6ad9f7d11d8488578f12a593df164fd64"
+      "sha256": "a696d73b4f06ca5175edab50b13f6d24a61b30a2f018fee78f967bd17335b1de"
     },
     {
       "path": "examples/locales/fr.json",
-      "sha256": "95226bf6dc9f4b5f09fc5d9b46460c4e5ef3da0459977f08107830e449dac412"
+      "sha256": "aade9a2b737d441db854e01dbd91864fde0db5f0703418e60a25a72db00da9f8"
     },
     {
       "path": "examples/locales/it.json",
-      "sha256": "6eaf56726a10fd116e54872d451c13999403eca7f41d8b017d56037e2342ee85"
+      "sha256": "8179915dcc431d69b646476476a9252f05894165e0ce40540244e627cbca8344"
     },
     {
       "path": "examples/locales/ja.json",
-      "sha256": "6167c92ed394de10848f0c1f81dbaa3ec462867687755b67d74effdb00bdaab8"
+      "sha256": "976cfacd34f2ea89ecec3e87b10d6d186654a9a4045f3101ef76eb72c1afd2a0"
     },
     {
       "path": "examples/locales/ko.json",
-      "sha256": "32dec830d4bb76be0c2e6cdf124c35ff8065e90f90b207e063de8a856cfb89c6"
+      "sha256": "e255ef9af51410d265a0d09e4c8d9fc81bb5982c905b118a44c96c60b703584d"
     },
     {
       "path": "examples/locales/pt.json",
-      "sha256": "70b706639d63d4c09b9f92ca783d9670dcf80351a5b3aba50707cb67d0c0999b"
+      "sha256": "2f992f448b66e6ccea321dc01d6c9117eb88f3f8aedc675dfdae4dce36a11994"
     },
     {
       "path": "examples/locales/ru.json",
-      "sha256": "83aaa4becfc9134756a5bdcdc35eb4b62bf07c3d65a92a87fa636b4cca09b087"
+      "sha256": "c5bc358bfc66bf0e54f8ad06db9a78984a61c7ce7c58f3ef98ec385c602f99b7"
     },
     {
       "path": "examples/sequence-cache-miss-request.html",
-      "sha256": "d304f50f86a9a8e223cff4836bf1b10c21cfe93eeaf61af218aede9e10facc46"
+      "sha256": "56938fa9a0a383ca216116eb32c045ab7d1eae3143d1927d81c05d58b3aa718e"
     },
     {
       "path": "examples/web-app-rendered.html",
-      "sha256": "2685e9c47e0935d73ff72f0617dc7f333c7c6cc09f94cad615e9963b99e46805"
+      "sha256": "d11f8e4ee27f918f7e363866a28a1ced09da1d269080e50bcded8acdefec20fb"
     },
     {
       "path": "examples/workflow-agent-tool-call-rendered.html",
-      "sha256": "850a28e41ff761176ed726fafb0a2444ccd760ddfee8610029e24f0e63d16e5d"
+      "sha256": "ca1935b3c4a5bda957a99ae8febdc3a1600bf99d4fc353ae135df0d2f654b1b5"
     },
     {
       "path": "LOCAL_CUSTOMIZATION.md",
@@ -322,7 +322,7 @@
     },
     {
       "path": "renderers/shared/i18n.mjs",
-      "sha256": "73c362b02f829d26f6a8e32317e88c7066a0ff4c0f73b7eac77749d67af3c303"
+      "sha256": "6ccc963ad9ef8a64b2dcdd14784de51f741ed7e132d741c3101c0e19336b972d"
     },
     {
       "path": "renderers/shared/legend.mjs",

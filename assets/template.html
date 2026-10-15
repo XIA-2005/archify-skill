@@ -2979,7 +2979,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       }
       body { background: #ffffff !important; padding: 0; }
       .container { max-width: none; }
-      .toolbar, .diagram-nav, .focus-chip, .archify-toast, .no-print { display: none !important; }
+      .toolbar, .diagram-nav, .focus-chip, .archify-toast, .archify-gif-preview, .no-print { display: none !important; }
       
       .diagram-container, .card { box-shadow: none; border-color: #e2e8f0; }
       .diagram-container { --archify-nav-reserve: 0px !important; }
@@ -3669,6 +3669,87 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     .toolbar .export-resolution select { min-width: 0; width: 100%; padding: 7px; border-radius: 7px; border: 1px solid var(--panel-border); background: var(--bg); color: var(--text); font: inherit; font-size: 12px; }
     .toolbar .export-resolution select:focus-visible { outline: 2px solid var(--frontend-stroke); outline-offset: 2px; }
     .toolbar .export-resolution > .hint { grid-column: 1 / -1; }
+    .toolbar .export-menu button[data-action="preview-gif"]::before {
+      content: '▶';
+      font-size: 0.7rem;
+      letter-spacing: 0;
+    }
+    .archify-gif-preview {
+      position: fixed;
+      inset: 0;
+      z-index: 240;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      background: color-mix(in srgb, #020617 55%, transparent);
+      backdrop-filter: blur(6px);
+    }
+    .archify-gif-preview[hidden] { display: none !important; }
+    .archify-gif-preview-panel {
+      width: min(920px, 100%);
+      max-height: min(90vh, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding: 0.9rem;
+      border-radius: 14px;
+      border: 1px solid var(--toolbar-border);
+      background: var(--toolbar-menu-bg);
+      color: var(--text);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+    }
+    .archify-gif-preview-header,
+    .archify-gif-preview-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .archify-gif-preview-header strong { font-size: 0.85rem; }
+    .archify-gif-preview-header span,
+    .archify-gif-preview-footer span { font-size: 0.72rem; opacity: 0.72; }
+    .archify-gif-preview-stage {
+      overflow: auto;
+      border-radius: 10px;
+      border: 1px solid var(--panel-border);
+      background: var(--bg);
+      min-height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .archify-gif-preview-stage canvas { display: block; max-width: 100%; height: auto; }
+    .archify-gif-preview-footer button {
+      appearance: none;
+      border: 1px solid var(--panel-border);
+      background: color-mix(in srgb, var(--text) 5%, transparent);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      font: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .archify-gif-preview-footer button:hover,
+    .archify-gif-preview-footer button:focus-visible {
+      background: color-mix(in srgb, var(--text) 10%, transparent);
+    }
+    .archify-gif-preview-footer button:focus-visible {
+      outline: 2px solid var(--frontend-stroke);
+      outline-offset: 2px;
+    }
+    /* Keep Preview GIF title visible; long hint may wrap/shrink instead of collapsing the title. */
+    [data-action="preview-gif"] .export-item-copy strong {
+      flex-shrink: 0;
+      min-width: auto;
+      overflow: visible;
+    }
+    [data-action="preview-gif"] .export-item-copy small {
+      flex: 1 1 auto;
+      min-width: 0;
+      white-space: normal;
+    }
     [data-action="transparent-background"] .export-item-copy { flex-direction: column; align-items: flex-start; gap: 0.15rem; white-space: normal; }
     [data-action="transparent-background"] .export-item-copy strong { overflow: visible; }
     [data-action="transparent-background"] .export-item-copy small { line-height: 1.5; }
@@ -4989,6 +5070,17 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           </select>
           <small id="export-gif-fps-hint" class="hint">{{i18n:viewer.export.gifFps.hint}}</small>
         </div>
+        <div class="export-menu-section export-resolution" role="group" aria-label="{{i18n:viewer.export.flowSpeed}}">
+          <label for="export-flow-speed">{{i18n:viewer.export.flowSpeed}}</label>
+          <select id="export-flow-speed" aria-describedby="export-flow-speed-hint">
+            <option value="2000">{{i18n:viewer.export.flowSpeed.fast}}</option>
+            <option value="3000">{{i18n:viewer.export.flowSpeed.medium}}</option>
+            <option value="4000" selected>{{i18n:viewer.export.flowSpeed.normal}}</option>
+            <option value="5000">{{i18n:viewer.export.flowSpeed.slow}}</option>
+            <option value="6000">{{i18n:viewer.export.flowSpeed.slowest}}</option>
+          </select>
+          <small id="export-flow-speed-hint" class="hint">{{i18n:viewer.export.flowSpeed.hint}}</small>
+        </div>
         <div class="export-menu-section" role="group" aria-label="{{i18n:viewer.export.raster}}">
           <span class="export-menu-heading" aria-hidden="true">{{i18n:viewer.export.image}}</span>
           <button data-format="png" type="button" role="menuitem" tabindex="-1"><span class="export-item-copy"><strong>PNG</strong><small class="hint">{{i18n:viewer.export.lossless}}</small></span></button>
@@ -5000,6 +5092,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <button data-format="svg" type="button" role="menuitem" tabindex="-1"><span class="export-item-copy"><strong>{{i18n:viewer.export.svg.auto}}</strong><small class="hint">{{i18n:viewer.export.svg.auto.hint}}</small></span></button>
           <button data-format="svg-light" type="button" role="menuitem" tabindex="-1"><span class="export-item-copy"><strong>{{i18n:viewer.export.svg.light}}</strong><small class="hint">{{i18n:viewer.export.svg.light.hint}}</small></span></button>
           <button data-format="svg-dark" type="button" role="menuitem" tabindex="-1"><span class="export-item-copy"><strong>{{i18n:viewer.export.svg.dark}}</strong><small class="hint">{{i18n:viewer.export.svg.dark.hint}}</small></span></button>
+          <button data-action="preview-gif" type="button" role="menuitem" tabindex="-1"><span class="export-item-copy"><strong>{{i18n:viewer.export.previewGif}}</strong><small class="hint">{{i18n:viewer.export.previewGif.hint}}</small></span></button>
           <button data-format="webm" type="button" role="menuitem" tabindex="-1"><span class="export-item-copy"><strong>WebM</strong><small class="hint">{{i18n:viewer.export.motion6s}}</small></span></button>
           <button data-format="gif" type="button" role="menuitem" tabindex="-1"><span class="export-item-copy"><strong>GIF</strong><small class="hint">{{i18n:viewer.export.gif.hint}}</small></span></button>
         </div>
@@ -5650,7 +5743,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
        ============================================================ */
     (function () {
       var RASTER_SCALE = 4;
-      var MOTION_DURATION = 6000;
+      var MOTION_DURATION = 4000;
       var MOTION_FPS = 30;
       var SHARE_CARD_WIDTH = 1200;
       var SHARE_CARD_HEIGHT = 630;
@@ -7033,12 +7126,13 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       // relationship geometry on every captured canvas frame.
       function recordMotion(options, format) {
         options = options || {};
+        var preview = options.preview === true && format === 'gif';
         if (format === 'gif' ? !canEncodeGif() : options.transparentBackground ? !canEncodeAlphaWebm() : !canRecordMotion()) {
           return Promise.reject(exportError(format === 'gif' ? 'viewer.export.error.gifRequirements' : 'viewer.export.error.webmRequirements'));
         }
         var duration = Math.max(250, Number(options.duration) || MOTION_DURATION);
         var fps = Math.max(1, Number(options.fps) || (format === 'gif' ? 12 : MOTION_FPS));
-        if (format === 'gif') { duration = Math.min(30000, duration); fps = Math.min(50, fps); }
+        if (format === 'gif') { duration = Math.min(6000, duration); fps = Math.min(50, fps); }
         var svg = document.querySelector('.diagram-container svg');
         var vb = svg.viewBox.baseVal;
         var scale;
@@ -7197,6 +7291,111 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           ctx.restore();
         }
 
+        if (preview) {
+          return new Promise(function (resolve, reject) {
+            var existing = document.querySelector('.archify-gif-preview');
+            if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+            var motionScene = createMotionScene(svg);
+            var backgroundImage = new Image();
+            var raf = 0, settled = false, startedAt = 0;
+            var overlay = document.createElement('div');
+            overlay.className = 'archify-gif-preview';
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-modal', 'true');
+            overlay.setAttribute('aria-label', viewerText('viewer.export.previewGif'));
+            overlay.innerHTML = ''
+              + '<div class="archify-gif-preview-panel">'
+              +   '<div class="archify-gif-preview-header">'
+              +     '<div><strong>' + viewerText('viewer.export.previewGif') + '</strong>'
+              +     '<span>' + viewerText('viewer.export.previewGif.hint') + '</span></div>'
+              +     '<button type="button" data-preview-close="1">' + viewerText('viewer.common.close') + '</button>'
+              +   '</div>'
+              +   '<div class="archify-gif-preview-stage"><canvas></canvas></div>'
+              +   '<div class="archify-gif-preview-footer">'
+              +     '<span data-preview-meta></span>'
+              +     '<div>'
+              +       '<button type="button" data-preview-replay="1">' + viewerText('viewer.export.previewGif.replay') + '</button> '
+              +       '<button type="button" data-preview-close="1">' + viewerText('viewer.common.close') + '</button>'
+              +     '</div>'
+              +   '</div>'
+              + '</div>';
+            var canvas = overlay.querySelector('canvas');
+            var ctx = canvas.getContext('2d');
+            var meta = overlay.querySelector('[data-preview-meta]');
+            if (!ctx) { URL.revokeObjectURL(sourceUrl); reject(exportError('viewer.export.error.mediaRecorder')); return; }
+            function cleanup() {
+              if (settled) return;
+              settled = true;
+              cancelAnimationFrame(raf);
+              document.removeEventListener('keydown', onKey, true);
+              var speedEl = document.getElementById('export-flow-speed');
+              if (speedEl) speedEl.removeEventListener('change', onSpeed);
+              backgroundImage.onload = backgroundImage.onerror = null;
+              backgroundImage.removeAttribute('src');
+              URL.revokeObjectURL(sourceUrl);
+              canvas.width = canvas.height = 0;
+              document.documentElement.removeAttribute('data-gif-preview');
+              if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+              resolve({ preview: true, durationMs: duration });
+            }
+            function onKey(event) {
+              if (event.key === 'Escape') { event.preventDefault(); cleanup(); }
+            }
+            function onSpeed() {
+              var speedEl = document.getElementById('export-flow-speed');
+              var value = Number(speedEl && speedEl.value);
+              if (!Number.isFinite(value) || value <= 0) value = MOTION_DURATION;
+              duration = Math.max(250, Math.min(6000, value));
+              motionScene.durationSec = duration / 1000;
+              document.documentElement.setAttribute('data-gif-preview-duration-ms', String(duration));
+              startedAt = performance.now();
+            }
+            function draw(now) {
+              if (settled) return;
+              try {
+                var durationSec = Math.max(0.25, motionScene.durationSec || (duration / 1000));
+                motionScene.durationSec = durationSec;
+                var elapsed = Math.max(0, ((Number(now) || performance.now()) - startedAt) / 1000);
+                if (elapsed >= durationSec) {
+                  startedAt = Number(now) || performance.now();
+                  elapsed = 0;
+                }
+                drawMotionFrame(ctx, backgroundImage, motionScene, elapsed);
+                if (meta) {
+                  meta.textContent = viewerText('viewer.export.previewGif.meta', {
+                    seconds: String(Math.round(durationSec * 10) / 10),
+                    progress: String(Math.round((elapsed / durationSec) * 100))
+                  });
+                }
+                raf = requestAnimationFrame(draw);
+              } catch (error) {
+                cleanup();
+                reject(error);
+              }
+            }
+            overlay.addEventListener('click', function (event) {
+              if (event.target === overlay || event.target.closest('[data-preview-close]')) cleanup();
+              if (event.target.closest('[data-preview-replay]')) startedAt = performance.now();
+            });
+            backgroundImage.onload = function () {
+              try {
+                canvas.width = Math.max(2, Math.round(data.width));
+                canvas.height = Math.max(2, Math.round(data.height));
+                document.body.appendChild(overlay);
+                document.addEventListener('keydown', onKey, true);
+                var speedEl = document.getElementById('export-flow-speed');
+                if (speedEl) speedEl.addEventListener('change', onSpeed);
+                startedAt = performance.now();
+                document.documentElement.setAttribute('data-gif-preview', 'open');
+                document.documentElement.setAttribute('data-gif-preview-duration-ms', String(duration));
+                raf = requestAnimationFrame(draw);
+              } catch (error) { cleanup(); reject(error); }
+            };
+            backgroundImage.onerror = function () { cleanup(); reject(exportError('viewer.export.error.webmBackground')); };
+            try { backgroundImage.src = sourceUrl; } catch (error) { cleanup(); reject(error); }
+          });
+        }
+
         return new Promise(function (resolve, reject) {
           var stream, recorder, motionCanvas, motionBitmap, raf = 0, timers = [], settled = false;
           var backgroundImage = new Image();
@@ -7299,6 +7498,17 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
       function recordWebm(options) { return recordMotion(options, 'webm'); }
       function recordGif(options) { return recordMotion(options, 'gif'); }
+      function previewGif(options) {
+        var speedEl = document.getElementById('export-flow-speed');
+        var fpsEl = document.getElementById('export-gif-fps');
+        var speed = Number(speedEl && speedEl.value);
+        if (!Number.isFinite(speed) || speed <= 0) speed = MOTION_DURATION;
+        return recordMotion(Object.assign({
+          duration: Math.max(250, Math.min(6000, speed)),
+          fps: Number(fpsEl && fpsEl.value) || 12,
+          preview: true
+        }, options || {}), 'gif');
+      }
 
       var menu = document.getElementById('export-menu');
       var btn = document.getElementById('btn-export');
@@ -7307,6 +7517,12 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       var backgroundItem = menu.querySelector('[data-action="transparent-background"]');
       var scaleItem = document.getElementById('export-scale');
       var gifFpsItem = document.getElementById('export-gif-fps');
+      var flowSpeedItem = document.getElementById('export-flow-speed');
+      function motionDurationMs() {
+        var value = Number(flowSpeedItem && flowSpeedItem.value);
+        if (!Number.isFinite(value) || value <= 0) value = MOTION_DURATION;
+        return Math.max(250, Math.min(6000, value));
+      }
       function backgroundOptions() {
         return { transparentBackground: backgroundItem.getAttribute('aria-checked') === 'true', scale: scaleItem.value };
       }
@@ -7363,6 +7579,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         if (it.dataset.action === 'copy' && !canCopyImage()) {
           it.disabled = true;
           it.title = viewerText('viewer.export.clipboardUnsupported');
+        }
+        if (it.dataset.action === 'preview-gif' && !canEncodeGif()) {
+          it.disabled = true;
+          it.title = viewerText('viewer.export.error.gifRequirements');
         }
       });
 
@@ -7426,7 +7646,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       menu.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
         if (e.key === 'Tab')    { close(false); return; }
-        if (e.target === scaleItem || e.target === gifFpsItem) return;
+        if (e.target === scaleItem || e.target === gifFpsItem || e.target === flowSpeedItem) return;
 
         var available = items().filter(function (i) { return !i.hidden && !i.disabled; });
         var current = available.indexOf(document.activeElement);
@@ -7451,7 +7671,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       });
 
       function runExport(format, options) {
-        if (format === 'gif') options = Object.assign({ fps: Number(gifFpsItem.value) }, options || {});
+        if (format === 'gif') {
+          options = Object.assign({ fps: Number(gifFpsItem.value), duration: motionDurationMs() }, options || {});
+        } else if (format === 'webm') {
+          options = Object.assign({ duration: motionDurationMs() }, options || {});
+        }
         options = Object.assign(backgroundOptions(), options || {});
         if (['svg', 'svg-light', 'svg-dark', 'png', 'jpeg', 'webp', 'webm', 'gif'].indexOf(format) === -1) {
           return Promise.reject(exportError('viewer.export.unsupported'));
@@ -7639,11 +7863,27 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         var copyBtn = e.target.closest('button[data-action="copy"]');
         if (copyBtn && !copyBtn.disabled) { runCopy(); return; }
 
+        var previewGifBtn = e.target.closest('button[data-action="preview-gif"]');
+        if (previewGifBtn && !previewGifBtn.disabled) {
+          previewGif().catch(function (err) {
+            console.error(err);
+            toast(exportMessage(err));
+          });
+          return;
+        }
+
         var formatBtn = e.target.closest('button[data-format]');
         if (formatBtn && !formatBtn.disabled) { runExport(formatBtn.dataset.format); }
       });
 
-      Archify.motion = { canRecord: canRecordMotion, recordWebm: recordWebm, canEncodeGif: canEncodeGif, recordGif: recordGif };
+      Archify.motion = {
+        canRecord: canRecordMotion,
+        recordWebm: recordWebm,
+        canEncodeGif: canEncodeGif,
+        recordGif: recordGif,
+        previewGif: previewGif,
+        motionDurationMs: motionDurationMs
+      };
       Archify.exportMenu = {
         open: open,
         close: close,

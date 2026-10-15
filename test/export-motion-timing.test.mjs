@@ -33,7 +33,7 @@ function frame(motionScene, elapsed) {
     clearRect() {}, drawImage() {}, save() {}, restore() {}, scale() {}, translate() {},
     beginPath() {}, moveTo() {}, lineTo() {}, quadraticCurveTo() {}, closePath() {}, fill() {},
     arc(x) { heads.push(x / 100); },
-    stroke() { if (this.lineWidth < 3.3) pulses.push(this.globalAlpha * 2); },
+    stroke() { if (this.lineWidth < 3.3) pulses.push(this.globalAlpha * (2)); },
   };
   draw(ctx, {}, motionScene, elapsed);
   return { heads, pulses };
@@ -43,7 +43,7 @@ function close(actual, expected) {
   assert.ok(Math.abs(actual - expected) < 1e-12, actual + ' != ' + expected);
 }
 
-for (const durationSec of [0.25, 3, 6, 30]) {
+for (const durationSec of [0.25, 2, 4, 6]) {
   test('GIF edges traverse once and nodes pulse once over ' + durationSec + ' seconds', () => {
     const s = scene(true, durationSec);
     assert.deepEqual(frame(s, 0), { heads: [], pulses: [] }, 'keep the first GIF frame as the still baseline');
@@ -80,7 +80,7 @@ test('GIF createMotionScene zeros delays and carries encoder durationSec', () =>
     getPointAtLength(x) { return { x, y: 0 }; },
   };
   const node = { ...edge, getBBox() { return { x: 0, y: 0, width: 20, height: 20 }; }, querySelector() { return null; } };
-  for (const duration of [250, 3000, 6000, 30000]) {
+  for (const duration of [250, 2000, 4000, 6000]) {
     const create = vm.runInNewContext('(' + source('createMotionScene') + ')', {
       format: 'gif', duration, vb: { x: 0, y: 0, width: 100, height: 100 },
       getComputedStyle() { return { stroke: '#22d3ee', strokeWidth: '2', getPropertyValue() { return ''; } }; },
@@ -116,7 +116,6 @@ test('non-GIF edges and nodes retain their staggered fixed-duration passes', () 
   close(late.heads[1], (2.1 - 1.92) / 1.75);
   assert.ok(!template.includes('((elapsed - edge.delay) %'));
   assert.ok(!template.includes('((elapsed - node.delay) %'));
-
 });
 
 test('GIF path stores durationSec and fails closed without multi-loop modulo', () => {
@@ -125,4 +124,46 @@ test('GIF path stores durationSec and fails closed without multi-loop modulo', (
   assert.match(template, /delay:\s*format === 'gif' \? 0/);
   assert.doesNotMatch(template, /motionScene\.gif && elapsed >= edge\.delay\) progress = \(\(elapsed/);
   assert.doesNotMatch(template, /motionScene\.gif && elapsed >= node\.delay\) progress = \(\(elapsed/);
+});
+
+test('flow speed UI defaults to 4s and maps option values onto durationSec', () => {
+  assert.match(template, /id="export-flow-speed"/);
+  assert.match(template, /option value="4000" selected/);
+  assert.match(template, /option value="2000"/);
+  assert.match(template, /option value="3000"/);
+  assert.match(template, /option value="5000"/);
+  assert.match(template, /option value="6000"/);
+  assert.match(template, /function motionDurationMs\(/);
+  assert.match(template, /MOTION_DURATION\s*=\s*4000/);
+  assert.match(template, /duration:\s*motionDurationMs\(\)/);
+  // Speed select values are the GIF single-pass duration in ms.
+  for (const ms of [2000, 3000, 4000, 5000, 6000]) {
+    const create = vm.runInNewContext('(' + source('createMotionScene') + ')', {
+      format: 'gif', duration: ms, vb: { x: 0, y: 0, width: 100, height: 100 },
+      getComputedStyle() { return { stroke: '#22d3ee', strokeWidth: '2', getPropertyValue() { return ''; } }; },
+    });
+    const edge = {
+      style: { getPropertyValue() { return ''; } },
+      getTotalLength() { return 100; },
+      getPointAtLength(x) { return { x, y: 0 }; },
+    };
+    const s = create({ querySelectorAll() { return [edge]; } });
+    assert.equal(s.durationSec, ms / 1000);
+    const mid = frame(s, ms / 2000);
+    assert.deepEqual(mid.heads, [0.5]);
+  }
+});
+
+test('GIF preview reuses the export GIF compose path and shared duration clock', () => {
+  assert.match(template, /data-action="preview-gif"/);
+  assert.match(template, /options\.preview === true && format === 'gif'/);
+  assert.match(template, /function previewGif\(/);
+  assert.match(template, /preview:\s*true/);
+  assert.match(template, /createMotionScene\(svg\)/);
+  assert.match(template, /drawMotionFrame\(ctx,\s*backgroundImage,\s*motionScene,\s*elapsed\)/);
+  assert.match(template, /motionScene\.durationSec = duration \/ 1000/);
+  assert.match(template, /data-gif-preview-duration-ms/);
+  // Preview and export both feed duration through recordMotion options.
+  assert.match(template, /recordMotion\(Object\.assign\(\{[\s\S]*?preview:\s*true[\s\S]*?\}, options \|\| \{\}\), 'gif'\)/);
+  assert.ok(template.indexOf("format === 'gif'") !== -1);
 });
