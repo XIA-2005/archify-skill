@@ -4600,18 +4600,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     .relationship-pulse-overlay { pointer-events: none; }
     .relationship-flow-pulse {
       fill: none;
-      stroke: var(--arrow-emphasis);
+      stroke: var(--flow-stroke, var(--arrow-emphasis));
       stroke-width: calc(3.35px / var(--relationship-pulse-scale, 1));
       stroke-linecap: round;
       stroke-dashoffset: var(--relationship-pulse-start, 18);
       opacity: 0;
-      filter: drop-shadow(0 0 var(--relationship-pulse-blur, 2px) var(--arrow-emphasis));
+      filter: drop-shadow(0 0 var(--relationship-pulse-blur, 2px) var(--flow-stroke, var(--arrow-emphasis)));
       animation: archify-relationship-pulse 1.2s linear 1 both;
     }
     svg[data-preset="signal-flow"] .relationship-flow-pulse {
-      stroke: var(--frontend-stroke);
       stroke-width: calc(3.85px / var(--relationship-pulse-scale, 1));
-      filter: drop-shadow(0 0 var(--relationship-pulse-blur, 2px) var(--frontend-stroke));
     }
     svg[data-preset="blueprint"] .relationship-flow-pulse {
       stroke-width: calc(2.5px / var(--relationship-pulse-scale, 1));
@@ -4619,7 +4617,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       filter: none;
     }
     svg[data-preset="editorial"] .relationship-flow-pulse {
-      stroke: var(--arrow-emphasis);
       stroke-width: calc(2.75px / var(--relationship-pulse-scale, 1));
       filter: none;
     }
@@ -4704,18 +4701,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     /* Direction names describe each edge relative to the focused node only.
        The cloned geometry already runs from the authored source to target, so
        incoming and outgoing signals must share the same playback direction. */
-    :is(.intent-trace-base, .intent-trace-flow)[data-direction="out"] {
-      stroke: var(--frontend-stroke);
-      filter: drop-shadow(0 0 var(--intent-trace-blur, 2px) var(--frontend-stroke));
-    }
-    :is(.intent-trace-base, .intent-trace-flow)[data-direction="in"] {
-      stroke: var(--database-stroke);
-      filter: drop-shadow(0 0 var(--intent-trace-blur, 2px) var(--database-stroke));
-      animation-direction: normal;
-    }
-    :is(.intent-trace-base, .intent-trace-flow)[data-direction="loop"] {
-      stroke: var(--security-stroke);
-      filter: drop-shadow(0 0 var(--intent-trace-blur, 2px) var(--security-stroke));
+    .intent-trace-base,
+    .intent-trace-flow {
+      stroke: var(--flow-stroke, var(--arrow-emphasis));
+      filter: drop-shadow(0 0 var(--intent-trace-blur, 2px) var(--flow-stroke, var(--arrow-emphasis)));
     }
     svg[data-preset="blueprint"] [data-intent-trace-selected],
     svg[data-preset="blueprint"] .intent-trace-base,
@@ -4884,7 +4873,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     }
     .ambient-edge-flow {
       fill: none;
-      stroke: var(--arrow-emphasis);
+      stroke: var(--flow-stroke, var(--arrow-emphasis));
       stroke-linecap: round;
       pointer-events: none;
       display: none;
@@ -4914,13 +4903,13 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     }
     .ambient-flow-head {
       --flow-peak: var(--flow-head-peak, 0.95);
-      stroke: color-mix(in srgb, var(--arrow-emphasis) 40%, white);
+      stroke: color-mix(in srgb, var(--flow-stroke, var(--arrow-emphasis)) 40%, white);
       stroke-width: 2.6;
       stroke-dasharray: var(--flow-dash, 6px) calc(var(--flow-len, 0px) + var(--flow-dash, 6px));
     }
     .ambient-flow-ripple {
       --flow-peak: var(--flow-ripple-peak, 0.65);
-      stroke: color-mix(in srgb, var(--arrow-emphasis) 55%, white);
+      stroke: color-mix(in srgb, var(--flow-stroke, var(--arrow-emphasis)) 55%, white);
       stroke-width: 2;
     }
     html[data-ambient-motion="running"][data-motion="live"]:not([data-motion-owner]):not([data-embed]):not([data-share-playback]):not([data-document-hidden]) .ambient-edge-flow {
@@ -4977,11 +4966,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       --flow-wake-peak: 0.34;
     }
     html[data-theme="light"] .ambient-flow-head {
-      stroke: color-mix(in srgb, var(--arrow-emphasis) 55%, black);
+      stroke: color-mix(in srgb, var(--flow-stroke, var(--arrow-emphasis)) 55%, black);
       stroke-width: 2.8;
     }
     html[data-theme="light"] .ambient-flow-ripple {
-      stroke: color-mix(in srgb, var(--arrow-emphasis) 65%, black);
+      stroke: color-mix(in srgb, var(--flow-stroke, var(--arrow-emphasis)) 65%, black);
     }
     html[data-ambient-entry="running"] svg[data-animation="trace"] [data-animate="node"] {
       transform-box: fill-box;
@@ -8755,6 +8744,33 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     })();
 
 
+    // All edge decorations sample the authored stroke, including inline and
+    // inherited styles. Weak keys let transient previews disappear normally.
+    Archify.flowStroke = (function () {
+      var sources = new WeakMap();
+      var svg = document.querySelector('.diagram-container svg');
+      function paint(source, overlay) {
+        var stroke = window.getComputedStyle(source).stroke;
+        overlay.style.setProperty('--flow-stroke', stroke && stroke !== 'none' ? stroke : 'var(--arrow-emphasis)');
+      }
+      if (svg && typeof MutationObserver !== 'undefined') {
+        var observer = new MutationObserver(function () {
+          svg.querySelectorAll('.ambient-edge-flow, .intent-trace-base, .intent-trace-flow, .relationship-flow-pulse').forEach(function (overlay) {
+            var source = sources.get(overlay);
+            if (source) paint(source, overlay);
+          });
+        });
+        // Theme and preset changes can recolor already-running decorations.
+        [document.documentElement, svg].forEach(function (element) {
+          observer.observe(element, { attributes: true, attributeFilter: ['data-theme', 'data-preset'] });
+        });
+      }
+      return function (source, overlay) {
+        sources.set(overlay, source);
+        paint(source, overlay);
+      };
+    })();
+
     /* ============================================================
        Motion Governor — one reader switch and one motion budget. Ambient
        trace yields to the strongest semantic owner; Still also parks bounded
@@ -9106,6 +9122,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           function tagOverlay(flow) {
             flow.setAttribute('data-ambient-flow-overlay', 'true');
             flow.setAttribute('aria-hidden', 'true');
+            Archify.flowStroke(shape, flow);
             if (shape.hasAttribute('data-tree-ancestors')) {
               flow.setAttribute('data-tree-ancestors', shape.getAttribute('data-tree-ancestors'));
             }
@@ -10197,6 +10214,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         clone.removeAttribute('data-focus-match');
         clone.removeAttribute('data-relationship-preview');
         clone.setAttribute('class', 'relationship-flow-pulse');
+        Archify.flowStroke(shape, clone);
         // Convert screen pixels to local units for equal signals at every viewer zoom.
         // Avoid pathLength normalization and non-scaling-stroke on this clone.
         clone.removeAttribute('pathLength');
@@ -14010,6 +14028,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         clone.removeAttribute('data-intent-trace-match');
         clone.removeAttribute('data-intent-trace-selected');
         clone.setAttribute('class', 'intent-trace-flow');
+        Archify.flowStroke(shape, clone);
         clone.setAttribute('data-direction', direction);
         // Hover has its own geometry (separate from the relationship inspector).
         // Size the signal in screen pixels, rather than a fraction of the route.
@@ -14076,6 +14095,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
               // Keep the entire connection highlighted while the brighter
               // signal travels above it and after its single pass finishes.
               var base = flow.cloneNode(false);
+              Archify.flowStroke(shape, base);
               base.setAttribute('class', 'intent-trace-base');
               wrapper.appendChild(base);
               wrapper.appendChild(flow);
