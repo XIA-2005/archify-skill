@@ -5239,6 +5239,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           </select>
           <small id="export-gif-fps-hint" class="hint">{{i18n:viewer.export.gifFps.hint}}</small>
         </div>
+        <div class="export-menu-section export-resolution" role="group" aria-label="{{i18n:viewer.export.gifFlow}}">
+          <label for="export-gif-flow">{{i18n:viewer.export.gifFlow}}</label>
+          <select id="export-gif-flow" aria-describedby="export-gif-flow-hint">
+            <option value="simultaneous">{{i18n:viewer.export.gifFlow.simultaneous}}</option>
+            <option value="relay">{{i18n:viewer.export.gifFlow.relay}}</option>
+          </select>
+          <small id="export-gif-flow-hint" class="hint">{{i18n:viewer.export.gifFlow.hint}}</small>
+        </div>
         <div class="export-menu-section export-resolution" role="group" aria-label="{{i18n:viewer.export.flowSpeed}}">
           <label for="export-flow-speed">{{i18n:viewer.export.flowSpeed}}</label>
           <select id="export-flow-speed" aria-describedby="export-flow-speed-hint">
@@ -7355,6 +7363,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         var duration = Math.max(250, Number(options.duration) || MOTION_DURATION);
         var fps = Math.max(1, Number(options.fps) || (format === 'gif' ? 12 : MOTION_FPS));
         if (format === 'gif') { duration = Math.min(6000, duration); fps = Math.min(50, fps); }
+        var flowMode = format === 'gif' ? (options.flowMode || gifFlowMode()) : 'simultaneous';
+        if (flowMode !== 'simultaneous' && flowMode !== 'relay') return Promise.reject(exportError('viewer.export.unsupported'));
+        function timelineForMode() {
+          if (flowMode !== 'relay') return null;
+          var timeline = Archify.motionGovernor && Archify.motionGovernor.exportTimeline && Archify.motionGovernor.exportTimeline();
+          if (!timeline) throw exportError('viewer.export.error.relayUnavailable');
+          return timeline;
+        }
+        var relayTimeline;
+        try { relayTimeline = timelineForMode(); } catch (error) { return Promise.reject(error); }
         var svg = document.querySelector('.diagram-container svg');
         var vb = svg.viewBox.baseVal;
         var scale;
@@ -7363,7 +7381,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         var data = serializeSvg(scale, { transparentBackground: options.transparentBackground === true });
         var sourceUrl = URL.createObjectURL(new Blob([data.svgString], { type: 'image/svg+xml;charset=utf-8' }));
 
-        function createMotionScene(root) {
+        function createMotionScene(root, timeline) {
           var rootMatrix = root.getCTM ? root.getCTM() : null;
 
           function pointInRoot(element, point) {
@@ -7405,13 +7423,17 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
           var edges = Array.prototype.slice.call(root.querySelectorAll(format === 'gif' ? 'path[data-composition-points],path[data-edge-key],path[data-edge-id],path[data-animate="edge"]' : 'path[data-animate="edge"]')).map(function (element, index) {
             var computed = getComputedStyle(element);
+            var timing = timeline && timeline.edges.find(function (entry) { return entry.element === element; });
+            if (timeline && !timing) return null;
             return {
               points: samplesFor(element),
               color: computed.stroke && computed.stroke !== 'none' ? computed.stroke : '#22d3ee',
               width: Math.max(1.5, parseFloat(computed.strokeWidth) || 1.5),
-              delay: format === 'gif' ? 0 : Math.min(12, authoredStep(element, index)) * 0.16
+              delay: format === 'gif' ? 0 : Math.min(12, authoredStep(element, index)) * 0.16,
+              start: timing ? timing.start : 0,
+              travel: timing ? timing.travel : 0
             };
-          }).filter(function (edge) { return edge.points.length > 1; });
+          }).filter(function (edge) { return edge && edge.points.length > 1; });
 
           var nodes = Array.prototype.slice.call(root.querySelectorAll(format === 'gif' ? '[data-node-id]' : '[data-node-id][data-animate="node"]')).map(function (element, index) {
             var box;
@@ -7424,11 +7446,12 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
               width: box.width,
               height: box.height,
               color: computed.stroke && computed.stroke !== 'none' ? computed.stroke : '#22d3ee',
+              windows: timeline ? ((timeline.nodes.find(function (entry) { return entry.id === element.getAttribute('data-node-id'); }) || {}).windows || []) : [],
               delay: format === 'gif' ? 0 : Math.min(12, authoredStep(element, index)) * 0.16
             };
           }).filter(Boolean);
 
-          return { edges: edges, nodes: nodes, gif: format === 'gif', durationSec: duration / 1000, x: vb.x, y: vb.y, width: vb.width, height: vb.height };
+          return { edges: edges, nodes: nodes, gif: format === 'gif', relay: !!timeline, cycle: timeline ? timeline.cycle : 0, durationSec: duration / 1000, x: vb.x, y: vb.y, width: vb.width, height: vb.height };
         }
 
         function pointAlong(points, progress) {
@@ -7463,10 +7486,12 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           ctx.save();
           ctx.scale(ctx.canvas.width / motionScene.width, ctx.canvas.height / motionScene.height);
           ctx.translate(-motionScene.x, -motionScene.y);
+          var clock = motionScene.relay ? elapsed / motionScene.durationSec * motionScene.cycle : elapsed;
 
           motionScene.edges.forEach(function (edge) {
             // GIF: one synchronized 0->1 pass over the full export; live/WebM keep staggered 1.75s loops.
             var progress = motionScene.gif ? elapsed / motionScene.durationSec : (elapsed - edge.delay) / 1.75;
+            if (motionScene.relay) progress = (clock - edge.start) / edge.travel;
             if (progress < 0 || progress > 1) return;
             var head = Math.max(0, Math.min(1, progress));
             var tail = Math.max(0, head - 0.24);
@@ -7500,6 +7525,13 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           motionScene.nodes.forEach(function (node) {
             // GIF: pulse once with the same export-length clock; live/WebM keep staggered 2.6s pulses.
             var progress = motionScene.gif ? elapsed / motionScene.durationSec : (elapsed - node.delay) / 2.6;
+            if (motionScene.relay) {
+              progress = -1;
+              node.windows.forEach(function (window) {
+                var end = Math.max(window.end, window.start + 0.42) + 0.78;
+                if (clock >= window.start && clock <= end) progress = (clock - window.start) / (end - window.start);
+              });
+            }
             if (progress < 0 || progress > 1) return;
             var pulse = Math.sin(Math.PI * progress);
             if (pulse <= 0.02) return;
@@ -7523,7 +7555,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             if (activeGifPreview) activeGifPreview();
             var existing = document.querySelector('.archify-gif-preview');
             if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-            var motionScene = createMotionScene(svg);
+            var motionScene = createMotionScene(svg, relayTimeline);
             var backgroundImage = new Image();
             var raf = 0, settled = false, startedAt = 0;
             var overlay = document.createElement('div');
@@ -7558,11 +7590,13 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
               document.removeEventListener('keydown', onKey, true);
               var speedEl = document.getElementById('export-flow-speed');
               if (speedEl) speedEl.removeEventListener('change', onSpeed);
+              if (gifFlowItem) gifFlowItem.removeEventListener('change', onSpeed);
               backgroundImage.onload = backgroundImage.onerror = null;
               backgroundImage.removeAttribute('src');
               URL.revokeObjectURL(sourceUrl);
               canvas.width = canvas.height = 0;
               document.documentElement.removeAttribute('data-gif-preview');
+              document.documentElement.removeAttribute('data-gif-preview-flow');
               if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
               if (activeGifPreview === cleanup) activeGifPreview = null;
               resolve({ preview: true, durationMs: duration });
@@ -7576,8 +7610,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
               var value = Number(speedEl && speedEl.value);
               if (!Number.isFinite(value) || value <= 0) value = MOTION_DURATION;
               duration = Math.max(250, Math.min(6000, value));
-              motionScene.durationSec = duration / 1000;
+              flowMode = gifFlowMode();
+              try { relayTimeline = timelineForMode(); motionScene = createMotionScene(svg, relayTimeline); }
+              catch (error) { cleanup(); reject(error); return; }
               document.documentElement.setAttribute('data-gif-preview-duration-ms', String(duration));
+              document.documentElement.setAttribute('data-gif-preview-flow', flowMode);
               startedAt = performance.now();
             }
             function draw(now) {
@@ -7615,9 +7652,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
                 document.addEventListener('keydown', onKey, true);
                 var speedEl = document.getElementById('export-flow-speed');
                 if (speedEl) speedEl.addEventListener('change', onSpeed);
+                if (gifFlowItem) gifFlowItem.addEventListener('change', onSpeed);
                 startedAt = performance.now();
                 document.documentElement.setAttribute('data-gif-preview', 'open');
                 document.documentElement.setAttribute('data-gif-preview-duration-ms', String(duration));
+                document.documentElement.setAttribute('data-gif-preview-flow', flowMode);
                 raf = requestAnimationFrame(draw);
               } catch (error) { cleanup(); reject(error); }
             };
@@ -7656,7 +7695,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           }
           backgroundImage.onload = async function () {
             try {
-              var motionScene = createMotionScene(svg);
+              var motionScene = createMotionScene(svg, relayTimeline);
               var canvas = motionCanvas = document.createElement('canvas');
               canvas.width = Math.max(2, format === 'gif' ? Math.round(data.width) : Math.round(data.width / 2) * 2);
               canvas.height = Math.max(2, format === 'gif' ? Math.round(data.height) : Math.round(data.height / 2) * 2);
@@ -7748,6 +7787,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       var scaleItem = document.getElementById('export-scale');
       var gifFpsItem = document.getElementById('export-gif-fps');
       var flowSpeedItem = document.getElementById('export-flow-speed');
+      var gifFlowItem = document.getElementById('export-gif-flow');
+      function gifFlowMode() { return gifFlowItem && gifFlowItem.value === 'relay' ? 'relay' : 'simultaneous'; }
       function motionDurationMs() {
         var value = Number(flowSpeedItem && flowSpeedItem.value);
         if (!Number.isFinite(value) || value <= 0) value = MOTION_DURATION;
@@ -7876,7 +7917,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       menu.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
         if (e.key === 'Tab')    { close(false); return; }
-        if (e.target === scaleItem || e.target === gifFpsItem || e.target === flowSpeedItem) return;
+        if (e.target === scaleItem || e.target === gifFpsItem || e.target === flowSpeedItem || e.target === gifFlowItem) return;
 
         var available = items().filter(function (i) { return !i.hidden && !i.disabled; });
         var current = available.indexOf(document.activeElement);
@@ -8195,6 +8236,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       var entryStarted = false;
       var entryPending = new Set();
       var flowCount = 0;
+      var exportTimeline = null;
 
       // Runtime decoration carries geometry and tree visibility only. Keep each
       // flow beside its authored edge so transforms, clipping and crossover
@@ -8548,6 +8590,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             return;
           }
           var record = {
+            element: shape,
             index: records.length,
             len: len,
             from: shape.getAttribute('data-edge-from') || shape.getAttribute('data-composition-edge-from') || '',
@@ -8634,6 +8677,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         var active = records.filter(function (record) { return record.active; });
         if (!active.length && !extras.length) return;
         var cycle = Math.max(RELAY.minCycle, span + RELAY.land + RELAY.rest);
+        exportTimeline = { cycle: cycle, edges: active, nodes: windows };
         writeKeyframes(active, windows, extras, cycle);
         svg.style.setProperty('--flow-cycle', cycle.toFixed(3) + 's');
         html.style.setProperty('--flow-cycle-chrome', cycle.toFixed(3) + 's');
@@ -8888,7 +8932,21 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         release: release,
         suspend: suspend,
         isPaused: effectivePaused,
-        owner: function () { return owner; }
+        owner: function () { return owner; },
+        exportTimeline: function () {
+          if (!exportTimeline || !exportTimeline.edges.length) return null;
+          return {
+            cycle: exportTimeline.cycle,
+            edges: exportTimeline.edges.map(function (record) {
+              return { element: record.element, start: record.depart, travel: record.travel };
+            }),
+            nodes: Object.keys(exportTimeline.nodes).map(function (id) {
+              return { id: id, windows: exportTimeline.nodes[id].map(function (window) {
+                return { start: window.start, end: window.end };
+              }) };
+            })
+          };
+        }
       };
     })();
 

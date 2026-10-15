@@ -161,11 +161,25 @@ test('GIF preview reuses the export GIF compose path and shared duration clock',
   assert.match(template, /options\.preview === true && format === 'gif'/);
   assert.match(template, /function previewGif\(/);
   assert.match(template, /preview:\s*true/);
-  assert.match(template, /createMotionScene\(svg\)/);
   assert.match(template, /drawMotionFrame\(ctx,\s*backgroundImage,\s*motionScene,\s*elapsed\)/);
-  assert.match(template, /motionScene\.durationSec = duration \/ 1000/);
   assert.match(template, /data-gif-preview-duration-ms/);
   // Preview and export both feed duration through recordMotion options.
   assert.match(template, /recordMotion\(Object\.assign\(\{[\s\S]*?preview:\s*true[\s\S]*?\}, options \|\| \{\}\), 'gif'\)/);
   assert.ok(template.indexOf("format === 'gif'") !== -1);
+});
+
+test('relay GIF keeps downstream signals dark until arrival and preserves export-length scaling', () => {
+  for (const durationSec of [2, 4, 6]) {
+    const s = scene(true, durationSec);
+    s.relay = true; s.cycle = 4;
+    s.edges = [0, 1.1, 2.2].map(start => ({ ...s.edges[0], start, travel: 1 }));
+    s.nodes = [];
+    assert.equal(frame(s, durationSec * 0.125).heads.length, 1, 'only the first hop can travel before arrival');
+    close(frame(s, durationSec * 0.125).heads[0], 0.5);
+    assert.equal(frame(s, durationSec * 0.4).heads.length, 1, 'the next hop takes over after arrival');
+    close(frame(s, durationSec * 0.4).heads[0], 0.5);
+    assert.deepEqual(frame(s, durationSec * 0.825).heads, [], 'settled signals never restart before the next GIF loop');
+    assert.deepEqual(frame(s, durationSec * 0.4), frame(JSON.parse(JSON.stringify(s)), durationSec * 0.4),
+      'the worker receives the same serializable timeline as preview');
+  }
 });

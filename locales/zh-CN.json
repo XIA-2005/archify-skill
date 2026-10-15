@@ -492,7 +492,7 @@
   "viewer.export.flowSpeed.normal": "标准 · 4 秒",
   "viewer.export.flowSpeed.slow": "慢 · 5 秒",
   "viewer.export.flowSpeed.slowest": "最慢 · 6 秒",
-  "viewer.export.flowSpeed.hint": "控制预览与导出时一次同步 GIF 通过的时长。范围 2–6 秒；默认 4 秒。",
+  "viewer.export.flowSpeed.hint": "控制预览和导出的一轮 GIF 时长。范围 2–6 秒，默认 4 秒。",
   "viewer.export.previewGif": "预览 GIF 动效",
   "viewer.export.previewGif.hint": "与导出同一单次时钟 · 无需下载",
   "viewer.export.previewGif.replay": "重播",
@@ -509,5 +509,10 @@
   "viewer.export.error.scale": "请选择导出倍率：1×、3×、5×、7× 或 10×",
   "viewer.export.error.scaleTooLarge": "此倍率超出导出尺寸上限，请选择较低倍率。",
   "viewer.export.transparent": "透明背景",
-  "viewer.export.transparent.hint": "PNG / WebP / WebM / GIF / SVG · JPEG 保留实色背景"
+  "viewer.export.transparent.hint": "PNG / WebP / WebM / GIF / SVG · JPEG 保留实色背景",
+  "viewer.export.gifFlow": "GIF 信号模式",
+  "viewer.export.gifFlow.simultaneous": "同时流动（现有）",
+  "viewer.export.gifFlow.relay": "接力传递（跟随页面动态）",
+  "viewer.export.gifFlow.hint": "接力模式按页面的到达顺序传递，分支可同时进行。预览和导出使用相同模式。",
+  "viewer.export.error.relayUnavailable": "此图没有可用的连线动态时序，请使用同时流动模式。"
 }

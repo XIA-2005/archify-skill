@@ -55,6 +55,44 @@ test('GIF preview shares speed settings, paints motion and releases replaced ses
       assert.equal(await run(`document.documentElement.dataset.gifPreviewDurationMs`), String(duration));
       assert.equal(await run(`Archify.motion.motionDurationMs()`), duration);
     }
+    if (mode === 'architecture') {
+      await run(`(()=>{const mode=document.getElementById('export-gif-flow');mode.value='relay';mode.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+      assert.equal(await run(`document.documentElement.dataset.gifPreviewFlow`), 'relay');
+      const timing = await run(`(()=>{
+        const p=Archify.motionGovernor.exportTimeline();
+        return p.edges.map(e=>({from:e.element.getAttribute('data-edge-from'),to:e.element.getAttribute('data-edge-to'),start:e.start,land:e.start+e.travel}));
+      })()`);
+      const first = timing.find(e=>e.from==='users'&&e.to==='cdn');
+      const next = timing.find(e=>e.from==='cdn'&&e.to==='lb');
+      assert.ok(first && next && next.start >= first.land, 'the same page timeline hands off between adjacent edges');
+      // Decode actual worker-encoded frames: the downstream midpoint must be
+      // unchanged before departure, and visibly lit during that hop.
+      const pixels = await run(`(async()=>{
+        const p=Archify.motionGovernor.exportTimeline(),edge=p.edges.find(e=>e.element.getAttribute('data-edge-id')==='api-sql');
+        const blob=await Archify.motion.recordGif({flowMode:'relay',duration:6000,fps:12,scale:'1'});
+        const decoder=new ImageDecoder({data:await blob.arrayBuffer(),type:'image/gif'});await decoder.tracks.ready;
+        const count=decoder.tracks.selectedTrack.frameCount;
+        const before=Math.floor(edge.start*0.5/p.cycle*count),during=Math.ceil((edge.start+edge.travel*0.5)/p.cycle*count);
+        const progress=(during/count*p.cycle-edge.start)/edge.travel;
+        const pt=edge.element.getPointAtLength(edge.element.getTotalLength()*(progress-0.08));
+        const vb=document.querySelector('.diagram-container > svg').viewBox.baseVal;
+        const frames=[];
+        for(const index of [0,before,during]) {
+          const {image}=await decoder.decode({frameIndex:index});
+          const canvas=document.createElement('canvas');canvas.width=image.displayWidth;canvas.height=image.displayHeight;
+          const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);
+          const x=Math.round((pt.x-vb.x)*canvas.width/vb.width),y=Math.round((pt.y-vb.y)*canvas.height/vb.height);
+          frames.push([...ctx.getImageData(x-2,y-2,5,5).data]);image.close();canvas.width=canvas.height=0;
+        }
+        decoder.close();
+        const delta=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0);
+        return {count,before,during,early:delta(frames[0],frames[1]),late:delta(frames[0],frames[2])};
+      })()`);
+      assert.equal(pixels.count, 72);
+      assert.ok(pixels.before > 0 && pixels.during > pixels.before, JSON.stringify(pixels));
+      assert.ok(pixels.early < 60, 'downstream signal stays dark before its turn: ' + JSON.stringify(pixels));
+      assert.ok(pixels.late > 100, 'encoded GIF lights the downstream signal on its turn: ' + JSON.stringify(pixels));
+    }
     const evidence = process.env.ARCHIFY_PREVIEW_EVIDENCE;
     if (evidence && mode === 'architecture') {
       fs.mkdirSync(evidence, { recursive: true });

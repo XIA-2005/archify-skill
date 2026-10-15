@@ -492,7 +492,7 @@
   "viewer.export.flowSpeed.normal": "Normal · 4 s",
   "viewer.export.flowSpeed.slow": "Lenta · 5 s",
   "viewer.export.flowSpeed.slowest": "Muy lenta · 6 s",
-  "viewer.export.flowSpeed.hint": "Controla la duración de una pasada GIF sincronizada en la vista previa y la exportación. Intervalo: 2–6 s; por defecto: 4 s.",
+  "viewer.export.flowSpeed.hint": "Controla una pasada GIF para la vista previa y la exportación. De 2 a 6 s; 4 s por defecto.",
   "viewer.export.previewGif": "Vista previa de la animación GIF",
   "viewer.export.previewGif.hint": "El mismo reloj de una pasada que la exportación · sin descarga",
   "viewer.export.previewGif.replay": "Repetir",
@@ -509,5 +509,10 @@
   "viewer.export.error.scale": "Elige una escala de exportación: 1×, 3×, 5×, 7× o 10×",
   "viewer.export.error.scaleTooLarge": "Esta escala supera el límite de tamaño de exportación. Elige una escala menor.",
   "viewer.export.transparent": "Fondo transparente",
-  "viewer.export.transparent.hint": "PNG / WebP / WebM / GIF / SVG · JPEG conserva un fondo opaco"
+  "viewer.export.transparent.hint": "PNG / WebP / WebM / GIF / SVG · JPEG conserva un fondo opaco",
+  "viewer.export.gifFlow": "Modo de señal GIF",
+  "viewer.export.gifFlow.simultaneous": "Simultáneo (actual)",
+  "viewer.export.gifFlow.relay": "Relevo (como la página)",
+  "viewer.export.gifFlow.hint": "El relevo sigue el orden de llegada de la página; las ramas pueden coincidir. La vista previa y la exportación usan el mismo modo.",
+  "viewer.export.error.relayUnavailable": "Este diagrama no tiene una secuencia de conexiones animada. Usa el modo simultáneo."
 }

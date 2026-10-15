@@ -492,7 +492,7 @@
   "viewer.export.flowSpeed.normal": "Normal · 4s",
   "viewer.export.flowSpeed.slow": "Slow · 5s",
   "viewer.export.flowSpeed.slowest": "Slowest · 6s",
-  "viewer.export.flowSpeed.hint": "Controls how long one synchronized GIF pass takes for preview and export. Range 2–6s; default 4s.",
+  "viewer.export.flowSpeed.hint": "Controls one GIF pass for preview and export. Range 2–6s; default 4s.",
   "viewer.export.previewGif": "Preview GIF motion",
   "viewer.export.previewGif.hint": "Same single-pass clock as export · no download",
   "viewer.export.previewGif.replay": "Replay",
@@ -509,5 +509,10 @@
   "viewer.export.error.scale": "Choose an export scale: 1×, 3×, 5×, 7× or 10×",
   "viewer.export.error.scaleTooLarge": "This scale exceeds the export size limit. Choose a lower scale.",
   "viewer.export.transparent": "Transparent background",
-  "viewer.export.transparent.hint": "PNG / WebP / WebM / GIF / SVG · JPEG stays opaque"
+  "viewer.export.transparent.hint": "PNG / WebP / WebM / GIF / SVG · JPEG stays opaque",
+  "viewer.export.gifFlow": "GIF signal mode",
+  "viewer.export.gifFlow.simultaneous": "Simultaneous (existing)",
+  "viewer.export.gifFlow.relay": "Relay (follow page motion)",
+  "viewer.export.gifFlow.hint": "Relay follows page arrival order; branches may run together. Preview and export share the selected mode.",
+  "viewer.export.error.relayUnavailable": "Relay GIF needs a page with connected Live motion. Use simultaneous mode for this diagram."
 }
