@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Local-only integration tests for the four non-Architecture editor modes.
+// Local-only integration tests for the nine non-Architecture editor modes.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url';
 
 const home=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const examples={workflow:'agent-tool-call.workflow.json',sequence:'cache-miss-request.sequence.json',
-  dataflow:'product-analytics.dataflow.json',lifecycle:'deployment-release.lifecycle.json'};
+  dataflow:'product-analytics.dataflow.json',lifecycle:'deployment-release.lifecycle.json',
+  erd:'orders.erd.json',class:'payments.class.json',tree:'payment-platform.tree.json',
+  timeline:'payment-incident.timeline.json',waterfall:'checkout-request.waterfall.json'};
 const serve=path.join(home,'editor','serve-schema.mjs');
 let passed=0;
 for(const [type,file] of Object.entries(examples)){
@@ -41,15 +43,25 @@ for(const [type,file] of Object.entries(examples)){
     assert.equal(rendered.status,200,`Preview ${type} failed: ${await rendered.text()}`);
     const iframe=await fetch(url+'preview');assert.equal(iframe.status,200);
     assert.match(await iframe.text(),/<svg\b/i);
-    if(type==='workflow'){
+    if(['workflow','erd','class','tree','timeline','waterfall'].includes(type)){
       const update=structuredClone(spec);update.meta.title+=' · schema editor test';
+      const primary={erd:['entities','label'],class:['types','label'],tree:['nodes','label'],
+        timeline:['events','title'],waterfall:['spans','name']}[type];
+      if(primary){
+        const [collection,field]=primary;
+        const invalid=structuredClone(spec);invalid[collection][0].id='';
+        const rejected=await req('api/save',invalid,initial.expectedHash);
+        assert.equal(rejected.status,422,'Schema-invalid edits must be rejected');
+        assert.deepEqual(JSON.parse(fs.readFileSync(input)),spec,'Rejected edits must preserve the candidate');
+        update[collection][0][field]+=' edited';
+      }
       const saved=await req('api/save',update,initial.expectedHash);
       const result=await saved.json();
       assert.equal(saved.status,200,JSON.stringify(result));
       assert.equal(result.ok,true);
       assert.ok(fs.existsSync(result.backup),'Save must retain original candidate backup');
       assert.ok(fs.existsSync(path.join(dir,'diagram.html')),'Official HTML must be finalized');
-      assert.equal(JSON.parse(fs.readFileSync(input)).meta.title,update.meta.title);
+      assert.deepEqual(JSON.parse(fs.readFileSync(input)),update,'Saving must retain every nested field and relationship');
       const stale=await req('api/save',update,initial.expectedHash);
       assert.equal(stale.status,409,'Stale revision must not overwrite a newer candidate');
     }

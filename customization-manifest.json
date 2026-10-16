@@ -38,7 +38,7 @@
     },
     {
       "path": "editor/deliver.mjs",
-      "sha256": "308a4d73e73db6c8bc4943b9438dc26f5bd14d77c315c6f884cb5fd639b15131"
+      "sha256": "d1ebd7ebeb0e3c79795e7276e782a4dd7e821b368415d1514bcabefcbbf8f0ad"
     },
     {
       "path": "editor/drawio-adapter.mjs",
@@ -62,7 +62,7 @@
     },
     {
       "path": "editor/README.md",
-      "sha256": "6d8c150eb80a54653b204070d46da499c37d99e44d384dbb12895ab93b05f5e7"
+      "sha256": "b201c8c7988d4daa4f2487abde57c9b75fd091c0bab8b1f04b5119696cbedbe9"
     },
     {
       "path": "editor/route-preview-cache.mjs",
@@ -78,11 +78,11 @@
     },
     {
       "path": "editor/schema-editor.html",
-      "sha256": "016e0bd9de5e8ab71358c7173d9171389b4333dd2581dfcab6c5e16287bd9d3a"
+      "sha256": "2e127669683f6275f353a0cba97dfa6252301ef47d7206980e6be7e23570763c"
     },
     {
       "path": "editor/serve-schema.mjs",
-      "sha256": "d410644007f5bf28de39355f70026bf82ab5fe971fba8d237b41a257e4643de2"
+      "sha256": "311ad8f690a2fac36444cb267f0ec03b8367151fa27fc91f31a28354d8017f1d"
     },
     {
       "path": "editor/serve.mjs",
@@ -138,7 +138,7 @@
     },
     {
       "path": "editor/test-schema-editor.mjs",
-      "sha256": "b20c990f71ae696ec7275b5c53d527aa4a5dac0aebfd8993e445416fc83fc93e"
+      "sha256": "5a13c924bb1c2153a4267eabe71887bbea547277ecdfb1eb4565b403078280ee"
     },
     {
       "path": "editor/test-text-geometry.mjs",
@@ -274,11 +274,11 @@
     },
     {
       "path": "references/authoring-contract.md",
-      "sha256": "629e661516da43375df168892f2356c90b34e64369cad37bb98643f981493bbc"
+      "sha256": "2c1d0a666bf81987c2e67807ee372c4d8fd8e029c8b2ca7a8eb8ff1d12e3364c"
     },
     {
       "path": "references/authoring-defaults.md",
-      "sha256": "e2dca0a1483c6152751658e7c4b6113d360997e2e2f15b5fe387bc65fc081761"
+      "sha256": "94619d593d68fbbdec1bb7767ebeec7114578de311857d8aeb15a03e1fc78760"
     },
     {
       "path": "references/delivery-contract.md",
@@ -386,7 +386,7 @@
     },
     {
       "path": "SKILL.md",
-      "sha256": "1a301114112d2d59c9b5a81056c7e52d73dc196113c8c5ecbc35bd037aa23fe0"
+      "sha256": "9b3a8d4c9542337246dd996e2ad49c0e52f742b48600267f78815260698a2a14"
     },
     {
       "path": "test/assert-customization.test.mjs",
@@ -427,6 +427,14 @@
     {
       "path": "THIRD_PARTY_NOTICES.md",
       "sha256": "12046fdf7ad4b3ee4f98576a235943f963945c4494e45325ec2d1e103882e6db"
+    },
+    {
+      "path": "test/editor-state-browser.test.mjs",
+      "sha256": "3f7cbd09da7a533bcf187d8df4f6a32e4281e4995a096acc225d4cf597f12aca"
+    },
+    {
+      "path": "test/new-type-delivery.test.mjs",
+      "sha256": "c4cf1f2cc3760be9bcc493fcfd301e02aa286e32cd9b835446e75198451c8d2e"
     }
   ],
   "requiredEditor": "Archify · 可视化编辑器",

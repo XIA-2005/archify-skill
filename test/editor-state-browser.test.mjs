@@ -27,6 +27,28 @@ const candidate=()=>({schema_version:1,diagram_type:'architecture',meta:{title:'
   boundaries:[{kind:'region',label:'First',wraps:['a'],pad:35},{kind:'region',label:'Second',wraps:['b'],pad:35},{kind:'region',label:'Third',wraps:['c'],pad:35}],
   connections:[{from:'a',to:'b',label:'first'},{from:'b',to:'c',label:'second'},{from:'c',to:'d',label:'third'}]});
 
+for(const [type,file,collection,field] of [
+  ['erd','orders.erd.json','entities','label'],
+  ['class','payments.class.json','types','label'],
+  ['tree','payment-platform.tree.json','nodes','label'],
+  ['timeline','payment-incident.timeline.json','events','title'],
+  ['waterfall','checkout-request.waterfall.json','spans','name'],
+]){
+  test(`${type} schema forms edit the primary collection without losing nested data`,{timeout:120000},async t=>{
+    const source=JSON.parse(fs.readFileSync(new URL('../examples/'+file,import.meta.url),'utf8'));
+    source.meta.output='diagram.html';
+    const page=await openEditor(t,source,true);if(!page)return;
+    assert.equal(await page.run(`document.querySelector('#kinds button.active').textContent.split(' ')[0]`),collection);
+    const text='Edited '+type;
+    await page.run(`(()=>{const label=[...document.querySelectorAll('#fields label')].find(x=>x.firstChild.textContent===${JSON.stringify(field)});const input=label.querySelector('input');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('change'));})()`);
+    const expected=structuredClone(source);expected[collection][0][field]=text;
+    assert.deepEqual(await page.snapshot(),expected);
+    await page.run(`document.getElementById('preview').click()`);
+    await page.until(`document.getElementById('status').textContent.includes('预览完成')`);
+    await page.screenshot(type+'-schema-editor');
+  });
+}
+
 test('anonymous edge and boundary deletion preserves mapping across later edits and history',{timeout:120000},async t=>{
   const page=await openEditor(t,candidate());if(!page)return;const {run,snapshot,until}=page;
   await until(`document.getElementById('message').textContent.includes('正式路由已同步')`);

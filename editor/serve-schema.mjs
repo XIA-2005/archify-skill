@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createSessionFiles, sessionError } from './session-files.mjs';
-// Separate text/form editor for workflow, sequence, dataflow and lifecycle.
+// Separate text/form editor for the nine non-Architecture diagram types.
 // Does not change canonical renderers, route solvers, or the Architecture editor.
 import http from 'node:http';
 import fs from 'node:fs';
@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const root = fs.realpathSync.native(process.cwd());
 const editorDir = path.dirname(fileURLToPath(import.meta.url));
 const cli = path.resolve(editorDir, '../bin/archify.mjs');
-const supported = new Set(['workflow', 'sequence', 'dataflow', 'lifecycle']);
+const supported = new Set(['workflow', 'sequence', 'dataflow', 'lifecycle', 'erd', 'class', 'tree', 'timeline', 'waterfall']);
 const candidateArg = process.argv[2];
 if (!candidateArg || process.argv.includes('--help')) {
   console.log('Usage: node editor/serve-schema.mjs <candidate.json> (run from project root)');
@@ -30,7 +30,7 @@ if (!inside(input) || !fs.statSync(input).isFile()) {
 const sessionFiles = createSessionFiles(root, [input]);
 const source = JSON.parse(sessionFiles.read(input, 'utf8'));
 if (!supported.has(source.diagram_type)) {
-  throw new Error('Expected a project-local workflow/sequence/dataflow/lifecycle candidate');
+  throw new Error('Expected a project-local non-Architecture candidate (workflow/sequence/dataflow/lifecycle/erd/class/tree/timeline/waterfall)');
 }
 const output = path.resolve(root, source.meta?.output || '');
 const outputParent = fs.realpathSync.native(path.dirname(output));

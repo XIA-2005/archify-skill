@@ -25,6 +25,7 @@
 | 导出可选透明背景 | PNG、WebP、PNG 剪贴板、WebM、GIF，以及 SVG 自动/浅色/深色新增统一透明背景选项 | 插入 PPT 或其他有背景的文档时更好融合；SVG 透明导出移除画布底色和背景网格，保留节点填充 |
 | GIF 动图导出 | 在已有图像、SVG、WebM 导出之外增加循环 GIF，单次同步通过，信号流速度 2–6 秒可调（默认 4 秒），导出前可预览；默认 12 fps，菜单可选 12/24/30/50 fps，静态图也能导出连线追踪动画 | 插入 PPT 后以动图展示流程；GIF 最多 256 色，使用二值透明 |
 | GIF 信号模式 | 导出可选「同时流动」或「接力传递（跟随页面 Live 到达顺序，分支可并行）」；预览与导出共用同一模式；无连线时序时提示不可用 | 按页面到达顺序演示信号流程，分支可并行；无可用时序时明确提示不可用 |
+| Schema 编辑器覆盖九种图 | 在原有 Workflow / Sequence / Dataflow / Lifecycle 之外，ERD / Class / Tree / Timeline / Waterfall 也可走字段/JSON 编辑、预览与校验保存 | 新类型生成后同样能用本地可编辑页面继续改，无需只靠改 JSON 文件 |
 | 导出放大倍数 | 图片、PNG 剪贴板、GIF、WebM 提供默认 / 1× / 3× / 5× / 7× / 10×，按目标分辨率重新渲染 | 改善栅格图片和动图放大后的清晰度；SVG 本身保留矢量，倍率不作用于 SVG |
 | 分组标题独立偏移 | 增加分组标题位置调整，边框和连线路径不随标题一起移动 | 给标题避让空间，保持系统分组与连接关系 |
 | 十种图表类型（3.1.0） | 在 Architecture / Workflow / Sequence / Dataflow / Lifecycle 之外，增加 ERD、Class、Tree、Timeline、Waterfall，均支持 typed JSON 与独立 HTML Viewer | 用同一套交付流程覆盖更多结构与时间线场景 |
@@ -37,7 +38,7 @@
 
 ## 怎么使用这些新增功能
 
-1. **编辑图表：** 让 AI 使用本版 [SKILL.md](SKILL.md) 生成图表，并提供正式 HTML、JSON 和本地编辑器链接。Architecture 使用完整图形编辑器；其他四种图使用字段/JSON 编辑器。
+1. **编辑图表：** 让 AI 使用本版 [SKILL.md](SKILL.md) 生成图表，并提供正式 HTML、JSON 和本地编辑器链接。Architecture 使用完整图形编辑器；其余九种图（含 ERD / Class / Tree / Timeline / Waterfall）使用字段/JSON Schema 编辑器。
 2. **修改连线标签：** 点击画布上的连线文字，在属性面板修改内容和字号。修改暂存在浏览器中，点击“保存并生成 HTML”才写入文件。
 3. **整体修改字号：** 展开“按文字类型设置字号”，打开文字类型列表并悬停定位目标，选择类型、输入字号，再点“应用到该类型”。移开鼠标、关闭列表或按 Esc 可清除高亮。
 4. **切换编辑器主题：** 点击顶部“浅色模式 / 深色模式”。编辑器主题不会修改 JSON 或正式导出的主题。
@@ -49,13 +50,19 @@
 ## 保留了哪些原版行为与限制
 
 - 原版五类图表、typed JSON、正式渲染器、校验、来源检查和独立 HTML 输出继续使用。保存时备份 JSON 并走正式校验；自动检查与人工视觉验收是不同阶段。
-- 完整拖拽编辑目前只针对 Architecture v1。Workflow / Sequence / Dataflow / Lifecycle 提供字段和 JSON 编辑，不宣称支持同等图形拖拽能力。
+- 完整拖拽编辑目前只针对 Architecture v1。其余九种图（Workflow / Sequence / Dataflow / Lifecycle / ERD / Class / Tree / Timeline / Waterfall）提供字段和 JSON 编辑，不宣称支持同等图形拖拽能力。
 - 编辑器只绑定本机 localhost；链接仅在对应 Node 服务运行时有效。本机编辑器不是部署在 GitHub 上的在线编辑服务。
 - JPEG 不支持透明背景；GIF 的透明度为二值，颜色最多 256 种。显式导出倍率超过尺寸上限时会提示降低倍率。
 - 更大倍率增加像素尺寸、导出时间和文件体积。SVG 保持矢量；PPT 的 SVG/GIF 支持取决于实际版本及播放环境。
 - 本版并未移除节点填充，也未将连线原有遮罩改成透明。只移除标签底色，并在用户勾选导出透明背景时移除画布背景。
 
 ## 更新记录
+
+### 2026-10-16（十种类型文档与 Schema 编辑器）
+- **文档补齐**：`SKILL.md` 覆盖全部十种图表类型与示例路径，并补充 ERD / Class 的 Mermaid 转换规则；`references/authoring-contract.md` 与 `authoring-defaults.md` 补齐五种新类型的布局、字段、关系与时间证据约定。
+- **Schema 编辑器接纳新五种**：Generic Schema 编辑器与 `editor/deliver.mjs` 交付包装支持 ERD / Class / Tree / Timeline / Waterfall（字段/JSON 编辑、正式渲染器预览、校验保存）；Architecture 拖拽编辑器保持不变。
+- **验证**：9 路 schema 编辑流、5 次完整交付、8 项浏览器回归；静态默认与 Architecture 编辑器行为保留。
+- **清单**：`customization-manifest.json` 与相关测试哈希已对齐。
 
 ### 2026-10-16（GIF 信号模式）
 - **新增：GIF 信号模式**：导出可选「同时流动」或「接力传递（跟随页面 Live 到达顺序，分支可并行）」；预览与导出共用同一模式；无连线时序时提示不可用。

@@ -18,7 +18,7 @@ for(let i=0;i<extra.length;i++) {
     throw Error('Usage: editor/deliver.mjs <type> <candidate.json> <diagram.html> [--repo-root path] [--out-dir path] [--quality showcase|standard] [--json]');
   flags.set(flag,extra[++i]);
 }
-if(!['architecture','workflow','sequence','dataflow','lifecycle'].includes(type)||!inputArg||!outputArg)
+if(!['architecture','workflow','sequence','dataflow','lifecycle','erd','class','tree','timeline','waterfall'].includes(type)||!inputArg||!outputArg)
   throw Error('Expected diagram type, candidate and HTML paths.');
 const input=path.resolve(inputArg), output=path.resolve(outputArg);
 const candidate=JSON.parse(fs.readFileSync(input,'utf8').replace(/^\uFEFF/,''));

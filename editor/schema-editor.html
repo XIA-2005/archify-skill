@@ -20,7 +20,7 @@ input[readonly]{background:#f0f3f8;color:#6b7a88}textarea{min-height:220px;font-
 .warn{color:#a3421c!important}.ok{color:#0b845b!important}@media(max-width:840px){main{display:block;height:auto}aside{height:55vh;margin-bottom:12px}.preview{height:75vh}}
 </style></head>
 <body><header><div><h1>Archify · 跨类型可编辑页面</h1><div class="small" id="title">加载候选文件…</div></div><div class="topline"><button id="reload">重新加载</button><button id="download">导出 JSON 草稿</button><button id="preview" class="primary">使用正式渲染器预览</button><button id="save">验证并保存</button></div></header>
-<main><aside><div class="head"><strong>内容与结构编辑</strong><p>支持工作流、时序、数据流与状态图。可编辑节点、箭头字段或完整 JSON；当前版本不支持画布拖拽。预览使用官方渲染器，保存使用正式验证链，和独立 HTML 解耦。</p></div>
+<main><aside><div class="head"><strong>内容与结构编辑</strong><p>支持工作流、时序、数据流、状态、数据库关系、类／接口、树形、时间线和执行耗时图。可编辑元素字段、嵌套 JSON 或完整 JSON；当前版本不支持画布拖拽。预览使用官方渲染器，保存使用正式验证链，和独立 HTML 解耦。</p></div>
 <div class="tabs"><button class="active" data-mode="form">结构属性</button><button data-mode="json">完整 JSON</button></div>
 <section id="forms" class="scroll"><div class="toolbar" id="kinds"></div><div class="list" id="items"></div><div class="fields" id="fields"></div></section>
 <section id="raw" class="scroll" hidden><div class="toolbar"><button id="apply">应用 JSON</button><button id="format">格式化</button><button id="discard">丢弃草稿</button></div><label>JSON 源文件（修改后点击“应用 JSON”）<textarea id="jsonbox" spellcheck="false"></textarea></label></section>
@@ -31,7 +31,7 @@ input[readonly]{background:#f0f3f8;color:#6b7a88}textarea{min-height:220px;font-
 const $=id=>document.getElementById(id),base=location.pathname.replace(/\/$/,'');
 const post=async(endpoint,payload)=>{const r=await fetch(base+endpoint,{method:'POST',headers:{'content-type':'application/json','x-archify-editor':'1'},body:JSON.stringify(payload)});return {status:r.status,...await r.json()}};
 let spec=null,expectedHash=null,activeArray='',activeIndex=0,rawDirty=false;
-const collections={workflow:['nodes','edges','lanes','phases','groups'],sequence:['participants','messages','groups'],dataflow:['nodes','edges','sources','sinks','groups'],lifecycle:['states','transitions','lanes','groups']};
+const collections={workflow:['nodes','edges','lanes','phases','groups'],sequence:['participants','messages','groups'],dataflow:['nodes','edges','sources','sinks','groups'],lifecycle:['states','transitions','lanes','groups'],erd:['entities','relationships','cards'],class:['types','relationships','cards'],tree:['nodes','cards'],timeline:['events','lanes','cards'],waterfall:['spans','cards']};
 const has=key=>Array.isArray(spec?.[key]);
 const keys=()=>[...(collections[spec?.diagram_type]||[]),...Object.keys(spec||{})].filter((x,i,a)=>has(x)&&a.indexOf(x)===i);
 const status=(s,bad=false)=>{ $('status').textContent=s;$('status').className=bad?'warn':'ok';};
