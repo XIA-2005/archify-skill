@@ -6,7 +6,7 @@
   "files": [
     {
       "path": "assets/template.html",
-      "sha256": "7f350722fc04b41158a41a6097dd2310b191d808fc079bdd6ead4c43c9fcd9ca"
+      "sha256": "a69869716c7b2e974699b9370d6f2f04b17856be31efcbf7772bbd28e662e9b7"
     },
     {
       "path": "bin/delivery-update.mjs",
@@ -210,11 +210,11 @@
     },
     {
       "path": "examples/dataflow-product-analytics.html",
-      "sha256": "465e9fd0de7028f714dd332f3c03809acbd0f442bd9e0f7ad071e59c7ea4a5bf"
+      "sha256": "92e1807db7ddcc9fde0d17b2a2f965071e1eb76de37f454cc004e83a720c2a40"
     },
     {
       "path": "examples/lifecycle-agent-run.html",
-      "sha256": "92712384fd3f67211ceb30b6d8566ffefef7b08a5aa34913fb3fae455ff6c664"
+      "sha256": "fa9db8562256bffb71eee369b32a2a20c0e2dd8fb928252e87ebb6a6847b41c7"
     },
     {
       "path": "examples/locales/de.json",
@@ -250,15 +250,15 @@
     },
     {
       "path": "examples/sequence-cache-miss-request.html",
-      "sha256": "96c73d472e2c5e4f5ef444c698bb87e32a3dd893d2d6490bb9aa4706dee6ffd0"
+      "sha256": "b9d15e17589b2cb7beb3e6a47caee3f95df92b815098490aacd738e650348396"
     },
     {
       "path": "examples/web-app-rendered.html",
-      "sha256": "c245dfb9e726398b4b3c22090bb90ccbd764867322776ada4b3997e20bd8ca24"
+      "sha256": "5cc1eb3aa1f86299e7ebb1b026400b0816388765c43aea9b2d046e7d0e141e21"
     },
     {
       "path": "examples/workflow-agent-tool-call-rendered.html",
-      "sha256": "9f0694fed074273a4729f9c67da8c639929bdbac3e7ae48e9d0fbe426e141d43"
+      "sha256": "b6318a7a29fd0c3ed8dc9c0a7994e90e7e9c9c8c22e891daa1d082608d3ce483"
     },
     {
       "path": "LOCAL_CUSTOMIZATION.md",
@@ -270,7 +270,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "937751568d36a82427b1f67639155b40ac0bc64f8efec7b0c0e270580bf98188"
+      "sha256": "c1ac1803381e2b8d0aa47c2b2128954bc4636e3b7e5d0b50638952003b68c6dc"
     },
     {
       "path": "references/authoring-contract.md",
@@ -386,7 +386,7 @@
     },
     {
       "path": "SKILL.md",
-      "sha256": "eb5b1ddccd42176e82d4c901ae954a83a99bfb42350863e89d0261e9cbaca616"
+      "sha256": "06c8ad6e21374b5592d96ec906738495dde7b76608f480bfb5cbd369c2749caf"
     },
     {
       "path": "test/assert-customization.test.mjs",
@@ -406,7 +406,7 @@
     },
     {
       "path": "test/export-browser.test.mjs",
-      "sha256": "8397cdbfaaf06fdc596c208d8184d8f6bf6d2413a4015299a5963a5baa1465b1"
+      "sha256": "b6f2acfd3a3ef4cca2473bd89ff9739b872a28e7732fd340e63d5953e62fdd29"
     },
     {
       "path": "test/export-cleanup-browser.test.mjs",

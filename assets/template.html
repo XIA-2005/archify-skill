@@ -5263,7 +5263,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <div class="export-menu-section" role="group" aria-label="{{i18n:viewer.export.background}}">
           <span class="export-menu-heading" aria-hidden="true">{{i18n:viewer.export.background}}</span>
-          <button data-action="transparent-background" type="button" role="menuitemcheckbox" aria-checked="false" tabindex="-1"><span class="export-item-copy"><strong>{{i18n:viewer.export.transparent}}</strong><small class="hint">{{i18n:viewer.export.transparent.hint}}</small></span><span class="export-background-check" aria-hidden="true"></span></button>
+          <button data-action="transparent-background" type="button" role="menuitemcheckbox" aria-checked="true" tabindex="-1"><span class="export-item-copy"><strong>{{i18n:viewer.export.transparent}}</strong><small class="hint">{{i18n:viewer.export.transparent.hint}}</small></span><span class="export-background-check" aria-hidden="true"></span></button>
         </div>
         <div class="export-menu-section export-resolution" role="group" aria-label="{{i18n:viewer.export.scale}}">
           <label for="export-scale">{{i18n:viewer.export.scale}}</label>
@@ -7891,7 +7891,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       // WebP encoding (older Safari), so detect explicitly.
       function supports(format) {
         if (format === 'svg' || format === 'svg-light' || format === 'svg-dark' || format === 'png') return true;
-        if (format === 'webm') return canRecordMotion();
+        if (format === 'webm') return backgroundOptions().transparentBackground ? canEncodeAlphaWebm() : canRecordMotion();
         if (format === 'gif') return canEncodeGif();
         var mime = format === 'jpeg' ? 'image/jpeg' : 'image/webp';
         try {

@@ -79,7 +79,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     };
     window.exportWait=predicate=>new Promise((resolve,reject)=>{const start=performance.now();function poll(){if(predicate())return resolve();if(performance.now()-start>12000)return reject(new Error('Export observation timed out'));setTimeout(poll,20);}poll();});
     const fault=new URL(location.href).searchParams.get('fault');
-    if(fault==='unsupported'){window.MediaRecorder=undefined;window.ClipboardItem=undefined;HTMLCanvasElement.prototype.toDataURL=()=> 'data:image/png;base64,';}
+    if(fault==='unsupported'){window.MediaRecorder=undefined;window.VideoEncoder=undefined;window.ClipboardItem=undefined;HTMLCanvasElement.prototype.toDataURL=()=> 'data:image/png;base64,';}
   ` });
   async function load({ width = 1440, theme = 'dark', extra = '' } = {}) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
@@ -382,7 +382,8 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
       await load({theme});
       await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]});
       const live=await run(`document.querySelector('.diagram-container svg').outerHTML`);
-      await run('Archify.exportMenu.open()');await click('[data-action="transparent-background"]');
+      await run('Archify.exportMenu.open()');
+      assert.equal(await run(`document.querySelector('[data-action="transparent-background"]').getAttribute('aria-checked')`), 'true');
       for(const format of ['svg','svg-light','svg-dark']){
         await run(`Archify.exportMenu.run(${JSON.stringify(format)})`);
         const result=await run(`(async()=>{
@@ -430,11 +431,11 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     }
   });
 
-  await t.test('background toggle preserves real raster alpha, JPEG fallback and keyboard state', async () => {
+  await t.test('transparent background defaults preserve real raster alpha, JPEG fallback and keyboard state', async () => {
     for (const theme of ['dark', 'light']) {
       await load({ theme });
       await run('Archify.exportMenu.open()');
-      await click('[data-action="transparent-background"]');
+      await run(`document.querySelector('[data-action="transparent-background"]').focus()`);
       assert.equal(await run('Archify.exportMenu.isOpen()'), true);
       assert.equal(await run(`document.activeElement.getAttribute('role')`), 'menuitemcheckbox');
       assert.equal(await run(`document.activeElement.getAttribute('aria-checked')`), 'true');
@@ -609,7 +610,6 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     if(evidence){const bytes=await run(`alphaBlob.arrayBuffer().then(b=>Array.from(new Uint8Array(b)))`);fs.writeFileSync(path.join(evidence,'transparent.webm'),Buffer.from(bytes));}
     await load({ theme: 'light' });
     await run('Archify.exportMenu.open()');
-    await click('[data-action="transparent-background"]');
     await click('[data-format="webm"]');
     await run('exportWait(()=>exportDownloads.length===1)');
     assert.equal(await run(`document.documentElement.getAttribute('data-last-export-format')`), 'webm');
@@ -678,7 +678,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
   await t.test('GIF menu frame rate changes decoded frames and preserves duration, transparency and keyboard selection', async () => {
     await load({theme:'light'});
     await run('Archify.exportMenu.open()');
-    await click('[data-action="transparent-background"]');
+    assert.equal(await run(`document.querySelector('[data-action="transparent-background"]').getAttribute('aria-checked')`), 'true');
     assert.equal(await run('document.getElementById("export-gif-fps").value'), '12');
     for (const [index, fps] of [12,24,30,50].entries()) {
       await run('Archify.exportMenu.open();document.getElementById("export-gif-fps").focus()');
@@ -807,6 +807,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
 
   await t.test('menu recording writes its receipt and downloads the real default-duration WebM', async () => {
     await load();await run('Archify.exportMenu.open()');
+    await click('[data-action="transparent-background"]');
     await click('[data-format="webm"]');
     await run('exportWait(()=>exportDownloads.length===1)');
     const state=await record('webm-download');
