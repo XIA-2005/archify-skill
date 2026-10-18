@@ -6,7 +6,7 @@
   "files": [
     {
       "path": "assets/template.html",
-      "sha256": "b96251655408d1565ea1934f769bd380b8a312dc8a52bd1d10887a6f6b826546"
+      "sha256": "7f350722fc04b41158a41a6097dd2310b191d808fc079bdd6ead4c43c9fcd9ca"
     },
     {
       "path": "bin/delivery-update.mjs",
@@ -210,11 +210,11 @@
     },
     {
       "path": "examples/dataflow-product-analytics.html",
-      "sha256": "c4971518fa302e159dff2e75fc81adb0bfb3bfe2d649530b3af973f6384a55f4"
+      "sha256": "465e9fd0de7028f714dd332f3c03809acbd0f442bd9e0f7ad071e59c7ea4a5bf"
     },
     {
       "path": "examples/lifecycle-agent-run.html",
-      "sha256": "8035a7de929cf266e5b56754da37e2b788a19d606ec2805b75840b041d95c682"
+      "sha256": "92712384fd3f67211ceb30b6d8566ffefef7b08a5aa34913fb3fae455ff6c664"
     },
     {
       "path": "examples/locales/de.json",
@@ -250,15 +250,15 @@
     },
     {
       "path": "examples/sequence-cache-miss-request.html",
-      "sha256": "3d47822e911e3fc6a03a21523ddd4c112d436c7db9760487f8e7cf0bb2ca9b44"
+      "sha256": "96c73d472e2c5e4f5ef444c698bb87e32a3dd893d2d6490bb9aa4706dee6ffd0"
     },
     {
       "path": "examples/web-app-rendered.html",
-      "sha256": "9d29a7df22da172d5e1e3f9d33c1486ed3a2dca8622f7ea3833f4d7e63c1fc9f"
+      "sha256": "c245dfb9e726398b4b3c22090bb90ccbd764867322776ada4b3997e20bd8ca24"
     },
     {
       "path": "examples/workflow-agent-tool-call-rendered.html",
-      "sha256": "14d56b4269dd5438f800f86571cff0891224b400041e87e5c57c2c3b9bad247d"
+      "sha256": "9f0694fed074273a4729f9c67da8c639929bdbac3e7ae48e9d0fbe426e141d43"
     },
     {
       "path": "LOCAL_CUSTOMIZATION.md",
@@ -270,7 +270,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "7a39846e730e5147d6ee24d4c6ea37db7d489c0de1937e465c57a2575d156f82"
+      "sha256": "937751568d36a82427b1f67639155b40ac0bc64f8efec7b0c0e270580bf98188"
     },
     {
       "path": "references/authoring-contract.md",

@@ -3065,7 +3065,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       }
       body { background: #ffffff !important; padding: 0; }
       .container { max-width: none; }
-      .toolbar, .diagram-nav, .focus-chip, .archify-toast, .archify-gif-preview, .no-print { display: none !important; }
+      .toolbar, .diagram-nav, .focus-chip, .archify-toast, .archify-export-progress, .archify-gif-preview, .no-print { display: none !important; }
       
       .diagram-container, .card { box-shadow: none; border-color: #e2e8f0; }
       .diagram-container { --archify-nav-reserve: 0px !important; }
@@ -3865,6 +3865,47 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       color: var(--text-faint);
       font-size: 0.6875rem;
     }
+
+    /* Export progress stays visible while the menu is closed. */
+    .archify-export-progress {
+      position: fixed;
+      bottom: 1.25rem;
+      left: 50%;
+      transform: translateX(-50%);
+      box-sizing: border-box;
+      width: min(22rem, calc(100% - 2rem));
+      padding: 1rem 1.125rem;
+      border: 1px solid var(--toolbar-border);
+      border-radius: 0.75rem;
+      background: var(--toolbar-menu-bg);
+      color: var(--text);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      font-size: 0.75rem;
+      z-index: 200;
+      pointer-events: none;
+    }
+    .archify-export-progress[hidden] { display: none; }
+    .export-progress-heading { display: flex; justify-content: space-between; gap: 1rem; }
+    .export-progress-heading strong { font-weight: 600; }
+    .export-progress-percent { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .archify-export-progress progress {
+      display: block;
+      width: 100%;
+      height: 0.375rem;
+      margin: 0.75rem 0 0.5rem;
+      border: 0;
+      border-radius: 1rem;
+      overflow: hidden;
+      appearance: none;
+      background: color-mix(in srgb, var(--text) 12%, transparent);
+      accent-color: var(--frontend-stroke);
+    }
+    .archify-export-progress progress::-webkit-progress-bar { background: color-mix(in srgb, var(--text) 12%, transparent); border-radius: 1rem; }
+    .archify-export-progress progress::-webkit-progress-value { background: var(--frontend-stroke); border-radius: 1rem; }
+    .archify-export-progress progress::-moz-progress-bar { background: var(--frontend-stroke); border-radius: 1rem; }
+    .export-progress-stage { color: var(--text-muted); }
+    .archify-export-progress[data-error] .export-progress-stage { color: var(--text); }
+    #btn-export[aria-disabled="true"] { cursor: progress; }
 
     /* Toast — brief feedback for actions like "copied" */
     .archify-toast {
@@ -5977,6 +6018,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         return getComputedStyle(document.body).backgroundColor || '#ffffff';
       }
 
+      function reportProgress(options, value, stage) {
+        if (options && typeof options.onProgress === 'function') options.onProgress(value, stage);
+      }
+
       function cleanExportClone(clone) {
         Array.prototype.forEach.call(clone.querySelectorAll('[data-ambient-flow-overlay]'), function (el) {
           el.remove();
@@ -6721,6 +6766,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           }
           img.onload = function () {
             try {
+              reportProgress(options, 50, 'rendering');
               canvas = document.createElement('canvas');
               canvas.width = Math.round(layout.width * scale);
               canvas.height = Math.round(layout.height * scale);
@@ -6735,6 +6781,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
               var mime = format === 'jpeg' ? 'image/jpeg' :
                          format === 'webp' ? 'image/webp' : 'image/png';
               var quality = format === 'png' ? undefined : 0.95;
+              reportProgress(options, 85, 'encoding');
               canvas.toBlob(function (blob) {
                 finish(blob ? null : exportError('viewer.export.error.toBlobNull', { label: format }), blob);
               }, mime, quality);
@@ -6795,6 +6842,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           var img = new Image();
           img.onload = function () {
             try {
+              reportProgress(options, 50, 'rendering');
               var canvas = document.createElement('canvas');
               canvas.width = SHARE_CARD_WIDTH;
               canvas.height = SHARE_CARD_HEIGHT;
@@ -6880,6 +6928,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
               ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
               URL.revokeObjectURL(svgUrl);
 
+              reportProgress(options, 85, 'encoding');
               canvas.toBlob(function (blob) {
                 if (!blob) reject(exportError('viewer.export.error.toBlobNull', { label: viewerText('viewer.export.shareCard') }));
                 else resolve(blob);
@@ -7146,7 +7195,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         };
       }
 
-      async function encodeGif(canvas, paint, duration, fps, transparent, workerMotion) {
+      async function encodeGif(canvas, paint, duration, fps, options, workerMotion) {
+        var transparent = options.transparentBackground === true;
         var ctx = canvas2dOrThrow(canvas, 'gif');
         var width = canvas.width, height = canvas.height;
         var worker, workerUrl, local, offscreen = false, sequence = 0, pending = new Map();
@@ -7233,13 +7283,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           }
           for (var sample = 0; sample < 8; sample++) {
             await render(sample * duration / 8000, 'sample');
+            reportProgress(options, 10 + 10 * (sample + 1) / 8, 'rendering');
           }
           await call('prepare', []);
           var count = Math.max(2, Math.round(duration * fps / 1000));
           for (var frame = 0; frame < count; frame++) {
             await render(frame * duration / count / 1000, 'pixels');
             await call('frame', [frame]);
+            reportProgress(options, 20 + 75 * (frame + 1) / count, 'encoding');
           }
+          reportProgress(options, 95, 'encoding');
           return await call('finish', []);
         } finally {
           if (worker) { worker.onmessage = worker.onerror = worker.onmessageerror = null; worker.terminate(); }
@@ -7253,7 +7306,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       // https://wiki.webmproject.org/alpha-channel
       // Encode the alpha plane directly as I420 Y values: RGB-to-YUV conversion
       // of a grayscale mask would restrict alpha to the video luma range.
-      async function encodeAlphaWebm(canvas, draw, duration, fps) {
+      async function encodeAlphaWebm(canvas, draw, duration, fps, options) {
         var width = canvas.width, height = canvas.height;
         var config = { codec: 'vp8', width: width, height: height, framerate: fps,
           bitrate: 8000000, alpha: 'discard', hardwareAcceleration: 'prefer-software' };
@@ -7323,6 +7376,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
               group(0xA0, [element(0xA1, concat([new Uint8Array([0x81, 0, 0, 0]), colors.pop()])),
                 number(0x9B, Math.round(Math.min(1000 / fps, duration - index * 1000 / fps))),
                 group(0x75A1, [group(0xA6, [number(0xEE, 1), element(0xA5, alphas.pop())])])]) ]));
+            reportProgress(options, 10 + 85 * (index + 1) / frames, 'encoding');
           }
         } finally {
           if (colorEncoder.state !== 'closed') colorEncoder.close();
@@ -7695,6 +7749,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           }
           backgroundImage.onload = async function () {
             try {
+              reportProgress(options, 10, 'rendering');
               var motionScene = createMotionScene(svg, relayTimeline);
               var canvas = motionCanvas = document.createElement('canvas');
               canvas.width = Math.max(2, format === 'gif' ? Math.round(data.width) : Math.round(data.width / 2) * 2);
@@ -7713,7 +7768,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
                 var encoder = format === 'gif' ? encodeGif : encodeAlphaWebm;
                 encoder(canvas, function (seconds) {
                   drawMotionFrame(ctx, motionBitmap || backgroundImage, motionScene, seconds);
-                }, duration, fps, options.transparentBackground === true,
+                }, duration, fps, options,
                   format === 'gif' && motionBitmap ? {
                     bitmap: motionBitmap, scene: motionScene,
                     source: pointAlong.toString() + '\n' + roundedRectPath.toString() + '\n' + drawMotionFrame.toString(),
@@ -7731,6 +7786,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
                 try {
                   var elapsed = Math.max(0, ((Number(now) || performance.now()) - startedAt) / 1000);
                   drawMotionFrame(ctx, backgroundImage, motionScene, elapsed);
+                  reportProgress(options, 10 + 85 * Math.min(1, elapsed * 1000 / duration), 'recording');
                   raf = requestAnimationFrame(draw);
                 } catch (error) { finish(error); }
               }
@@ -7740,6 +7796,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
               recorder.onerror = function (event) { finish(event.error || exportError('viewer.export.error.mediaRecorder')); };
               recorder.onstop = function () {
                 try {
+                  reportProgress(options, 95, 'encoding');
                   var blob = new Blob(chunks, { type: recorder.mimeType || mime });
                   finish(blob.size ? null : exportError('viewer.export.error.emptyWebm'), blob);
                 } catch (error) { finish(error); }
@@ -7879,7 +7936,71 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 1500);
       }
 
+      // Keep progress outside the menu so long exports remain visible after it
+      // closes. Only stage changes are live announcements; frame percentages
+      // belong to the native progress control rather than a chatty live region.
+      var progressEl = document.createElement('section');
+      progressEl.className = 'archify-export-progress';
+      progressEl.hidden = true;
+      progressEl.setAttribute('aria-labelledby', 'export-progress-title');
+      progressEl.innerHTML = '<div class="export-progress-heading"><strong id="export-progress-title"></strong>' +
+        '<span class="export-progress-percent" aria-hidden="true"></span></div>' +
+        '<progress max="100" value="0" aria-labelledby="export-progress-title"></progress>' +
+        '<span class="export-progress-stage" role="status"></span>';
+      document.body.appendChild(progressEl);
+      var progressBar = progressEl.querySelector('progress');
+      var progressStage = progressEl.querySelector('.export-progress-stage');
+      var progressPercent = progressEl.querySelector('.export-progress-percent');
+      var activeProgress = null, progressTimer = null;
+
+      function withExportProgress(format, task, handleError) {
+        // Repeated menu/API requests share the pending export instead of
+        // starting another expensive encoder or replacing its progress.
+        if (activeProgress) return activeProgress.promise;
+        clearTimeout(progressTimer);
+        var job = activeProgress = {};
+        progressEl.hidden = false;
+        progressEl.removeAttribute('data-error');
+        progressEl.querySelector('strong').textContent = viewerText('viewer.export.progress.title', { format: format.toUpperCase() });
+        btn.setAttribute('aria-busy', 'true');
+        btn.setAttribute('aria-disabled', 'true');
+        function update(value, stage) {
+          if (activeProgress !== job) return;
+          var percent = Math.max(progressBar.value, Math.min(100, Math.round(value)));
+          progressBar.value = percent;
+          progressPercent.textContent = percent + '%';
+          var message = viewerText('viewer.export.progress.' + stage);
+          if (progressStage.textContent !== message) progressStage.textContent = message;
+        }
+        function finish(success) {
+          update(success ? 100 : progressBar.value, success ? 'complete' : 'failed');
+          if (!success) progressEl.setAttribute('data-error', '');
+          activeProgress = null;
+          btn.removeAttribute('aria-busy');
+          btn.removeAttribute('aria-disabled');
+          progressTimer = setTimeout(function () { progressEl.hidden = true; }, success ? 1500 : 4000);
+        }
+        progressBar.value = 0;
+        update(0, 'preparing');
+        try {
+          // Invoke synchronously: ClipboardItem must stay in the user gesture,
+          // and SVG serialization retains its synchronous failure contract.
+          job.promise = Promise.resolve(task(update)).then(function (value) {
+            finish(true);
+            return value;
+          }, function (error) {
+            finish(false);
+            throw error;
+          }).catch(handleError);
+          return job.promise;
+        } catch (error) {
+          finish(false);
+          throw error;
+        }
+      }
+
       function open(focusLast) {
+        if (activeProgress) return;
         var relayOption = gifFlowItem && gifFlowItem.querySelector('option[value="relay"]');
         if (relayOption) {
           relayOption.disabled = !relayAvailable();
@@ -7959,32 +8080,37 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         if (['svg', 'svg-light', 'svg-dark', 'png', 'jpeg', 'webp', 'webm', 'gif'].indexOf(format) === -1) {
           return Promise.reject(exportError('viewer.export.unsupported'));
         }
+        if (activeProgress) return activeProgress.promise;
         var base = diagramFilename();
         var svgTheme = format === 'svg' ? 'auto' :
           format === 'svg-light' ? 'light' :
           format === 'svg-dark' ? 'dark' : null;
         close(true);
         clearExportReceipt();
-        if (format === 'webm') toast(viewerText('viewer.export.recording'));
-        if (format === 'gif') toast(viewerText('viewer.export.encodingGif'));
-        return (svgTheme
+        return withExportProgress(format, function (update) {
+          options.onProgress = update;
+          return (svgTheme
           ? Promise.resolve(serializeSvg(1, { theme: svgTheme, transparentBackground: options.transparentBackground === true })).then(function (d) {
               var blob = new Blob([d.svgString], { type: 'image/svg+xml;charset=utf-8' });
+              update(98, 'saving');
               recordExportReceipt('svg', blob, d.canonicalStateClean);
               download(blob, base + (svgTheme === 'auto' ? '' : '-' + svgTheme) + '.svg');
             })
           : format === 'webm' || format === 'gif'
             ? (format === 'gif' ? recordGif(options) : recordWebm(options)).then(function (blob) {
+                update(98, 'saving');
                 document.documentElement.setAttribute('data-last-motion-bytes', String(blob.size));
                 recordExportReceipt(format, blob, true);
                 download(blob, base + '.' + format);
                 toast(viewerText(format === 'gif' ? 'viewer.export.downloadedGif' : 'viewer.export.downloadedWebm'));
               })
           : rasterize(format, options).then(function (blob) {
+              update(98, 'saving');
               recordExportReceipt(format, blob, true);
               download(blob, base + '.' + format);
             })
-        ).catch(function (err) {
+          );
+        }, function (err) {
           console.error(err);
           var technicalMessage = err && err.message ? err.message : format;
           var message = exportMessage(err);
@@ -8005,18 +8131,22 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       }
 
       function runRouteShareCard() {
+        if (activeProgress) return activeProgress.promise;
         close(false);
         clearExportReceipt();
-        var snapshot = Archify.routeProbe && Archify.routeProbe.exportSnapshot();
-        var blobPromise = snapshot
-          ? renderShareCard({ routeSnapshot: snapshot })
-          : Promise.reject(exportError('viewer.export.routeRequired'));
-        return blobPromise.then(function (blob) {
-          recordExportReceipt('share-card', blob, false, { width: SHARE_CARD_WIDTH, height: SHARE_CARD_HEIGHT }, 'route', true);
-          download(blob, diagramFilename() + '-route-share-card.png');
-          toast(viewerText('viewer.export.downloadedRoute'));
-          return blob;
-        }).catch(function (err) {
+        return withExportProgress('png', function (update) {
+          var snapshot = Archify.routeProbe && Archify.routeProbe.exportSnapshot();
+          var blobPromise = snapshot
+            ? renderShareCard({ routeSnapshot: snapshot, onProgress: update })
+            : Promise.reject(exportError('viewer.export.routeRequired'));
+          return blobPromise.then(function (blob) {
+            update(98, 'saving');
+            recordExportReceipt('share-card', blob, false, { width: SHARE_CARD_WIDTH, height: SHARE_CARD_HEIGHT }, 'route', true);
+            download(blob, diagramFilename() + '-route-share-card.png');
+            toast(viewerText('viewer.export.downloadedRoute'));
+            return blob;
+          });
+        }, function (err) {
           console.error(err);
           var technicalMessage = err && err.message ? err.message : 'share-card';
           var message = exportMessage(err);
@@ -8027,20 +8157,24 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       }
 
       function runReachShareCard() {
+        if (activeProgress) return activeProgress.promise;
         close(false);
         clearExportReceipt();
-        var snapshot = Archify.focus && typeof Archify.focus.reachabilitySnapshot === 'function'
-          ? Archify.focus.reachabilitySnapshot()
-          : null;
-        var blobPromise = snapshot
-          ? renderShareCard({ reachSnapshot: snapshot })
-          : Promise.reject(exportError('viewer.export.reachRequired'));
-        return blobPromise.then(function (blob) {
-          recordExportReceipt('share-card', blob, false, { width: SHARE_CARD_WIDTH, height: SHARE_CARD_HEIGHT }, 'reach', false, true);
-          download(blob, diagramFilename() + '-' + snapshot.direction + '-reach-share-card.png');
-          toast(viewerText('viewer.export.downloadedReach'));
-          return blob;
-        }).catch(function (err) {
+        return withExportProgress('png', function (update) {
+          var snapshot = Archify.focus && typeof Archify.focus.reachabilitySnapshot === 'function'
+            ? Archify.focus.reachabilitySnapshot()
+            : null;
+          var blobPromise = snapshot
+            ? renderShareCard({ reachSnapshot: snapshot, onProgress: update })
+            : Promise.reject(exportError('viewer.export.reachRequired'));
+          return blobPromise.then(function (blob) {
+            update(98, 'saving');
+            recordExportReceipt('share-card', blob, false, { width: SHARE_CARD_WIDTH, height: SHARE_CARD_HEIGHT }, 'reach', false, true);
+            download(blob, diagramFilename() + '-' + snapshot.direction + '-reach-share-card.png');
+            toast(viewerText('viewer.export.downloadedReach'));
+            return blob;
+          });
+        }, function (err) {
           console.error(err);
           var technicalMessage = err && err.message ? err.message : 'share-card';
           var message = exportMessage(err);
@@ -8108,16 +8242,19 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       }
 
       function runCopy() {
+        if (activeProgress) return activeProgress.promise;
         close(true);
         clearExportReceipt();
         if (!canCopyImage()) {
           alert(viewerText('viewer.export.clipboardUnsupported.short'));
           return;
         }
-        var blobPromise = rasterize('png', backgroundOptions());
-        return writePngToClipboard(blobPromise).then(function () {
-          toast(viewerText('viewer.export.copiedPng'));
-        }).catch(function (err) {
+        return withExportProgress('png', function (update) {
+          var blobPromise = rasterize('png', Object.assign(backgroundOptions(), { onProgress: update }));
+          return writePngToClipboard(blobPromise).then(function () {
+            toast(viewerText('viewer.export.copiedPng'));
+          });
+        }, function (err) {
           console.error(err);
           alert(viewerText('viewer.export.copyFailed', {
             message: exportMessage(err)
@@ -8126,6 +8263,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       }
 
       menu.addEventListener('click', function (e) {
+        if (activeProgress) return;
         if (e.target.closest('[data-action="transparent-background"]')) {
           backgroundItem.setAttribute('aria-checked', backgroundOptions().transparentBackground ? 'false' : 'true');
           var webmItem = menu.querySelector('[data-format="webm"]');
