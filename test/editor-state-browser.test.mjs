@@ -27,6 +27,23 @@ const candidate=()=>({schema_version:1,diagram_type:'architecture',meta:{title:'
   boundaries:[{kind:'region',label:'First',wraps:['a'],pad:35},{kind:'region',label:'Second',wraps:['b'],pad:35},{kind:'region',label:'Third',wraps:['c'],pad:35}],
   connections:[{from:'a',to:'b',label:'first'},{from:'b',to:'c',label:'second'},{from:'c',to:'d',label:'third'}]});
 
+test('shared layout planner loads through the editor module URL and preserves authored semantics',{timeout:120000},async t=>{
+  const source=candidate(),page=await openEditor(t,source);if(!page)return;
+  const result=await page.run(`(async()=>{
+    const {planAutoLayout,applyAutoLayout}=await import(new URL('auto-layout.mjs',location.href));
+    const source=${JSON.stringify(source)};
+    const moved=applyAutoLayout(source,planAutoLayout(source,{direction:'TB'}));
+    return {source,moved};
+  })()`);
+  assert.deepEqual(result.source,source);
+  assert.deepEqual(result.moved.connections,source.connections);
+  assert.deepEqual(result.moved.boundaries,source.boundaries);
+  assert.equal(result.moved.components.length,source.components.length);
+  assert.ok(result.moved.components.every(node=>node.pos.every(Number.isFinite)));
+  assert.notDeepEqual(result.moved.components.map(node=>node.pos),source.components.map(node=>node.pos));
+  assert.deepEqual(await page.snapshot(),source,'a layout proposal must not mutate the current editor document');
+});
+
 for(const [type,file,collection,field] of [
   ['erd','orders.erd.json','entities','label'],
   ['class','payments.class.json','types','label'],

@@ -5243,7 +5243,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <label for="export-gif-flow">{{i18n:viewer.export.gifFlow}}</label>
           <select id="export-gif-flow" aria-describedby="export-gif-flow-hint">
             <option value="simultaneous">{{i18n:viewer.export.gifFlow.simultaneous}}</option>
-            <option value="relay">{{i18n:viewer.export.gifFlow.relay}}</option>
+            <option value="relay" selected>{{i18n:viewer.export.gifFlow.relay}}</option>
           </select>
           <small id="export-gif-flow-hint" class="hint">{{i18n:viewer.export.gifFlow.hint}}</small>
         </div>
@@ -7788,7 +7788,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       var gifFpsItem = document.getElementById('export-gif-fps');
       var flowSpeedItem = document.getElementById('export-flow-speed');
       var gifFlowItem = document.getElementById('export-gif-flow');
-      function gifFlowMode() { return gifFlowItem && gifFlowItem.value === 'relay' ? 'relay' : 'simultaneous'; }
+      function relayAvailable() {
+        return !!(Archify.motionGovernor && Archify.motionGovernor.exportTimeline && Archify.motionGovernor.exportTimeline());
+      }
+      function gifFlowMode() { return gifFlowItem && gifFlowItem.value === 'relay' && relayAvailable() ? 'relay' : 'simultaneous'; }
       function motionDurationMs() {
         var value = Number(flowSpeedItem && flowSpeedItem.value);
         if (!Number.isFinite(value) || value <= 0) value = MOTION_DURATION;
@@ -7877,6 +7880,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       }
 
       function open(focusLast) {
+        var relayOption = gifFlowItem && gifFlowItem.querySelector('option[value="relay"]');
+        if (relayOption) {
+          relayOption.disabled = !relayAvailable();
+          if (relayOption.disabled && gifFlowItem.value === 'relay') gifFlowItem.value = 'simultaneous';
+        }
         if (Archify.preset && Archify.preset.isOpen()) Archify.preset.close(false);
         if (Archify.semanticLens && typeof Archify.semanticLens.clearPreview === 'function') Archify.semanticLens.clearPreview();
         if (Archify.semanticLens && Archify.semanticLens.isOpen()) Archify.semanticLens.close({ restoreFocus: false });
@@ -8741,8 +8749,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       }
       function writeStored() {
         try {
-          if (readerPaused) localStorage.removeItem(STORAGE_KEY);
-          else localStorage.setItem(STORAGE_KEY, 'live');
+          localStorage.setItem(STORAGE_KEY, readerPaused ? 'still' : 'live');
         } catch (_) {}
       }
       function reducedMotion() {
@@ -8892,7 +8899,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       createFlows();
       html.setAttribute('data-motion-capable', 'true');
       btn.hidden = false;
-      readerPaused = readStored() !== 'live';
+      readerPaused = readStored() === 'still';
       btn.addEventListener('click', function () { setPaused(!readerPaused); });
       if (motionQuery) {
         if (typeof motionQuery.addEventListener === 'function') motionQuery.addEventListener('change', render);

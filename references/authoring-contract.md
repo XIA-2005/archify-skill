@@ -75,31 +75,22 @@ legend label overrides, and cards. A bilingual diagram still
 chooses one primary locale for the Viewer; follow an explicit primary-language
 request, then prompt order or conversation dominance.
 
-`en` and `zh-CN` are built-in Viewer catalogs and need nothing further. For
-every other `meta.locale`, also set `meta.translations`: an object mapping the
-renderer's canonical message keys (`catalogKeys()` in
-`renderers/shared/i18n.mjs`) to translated strings whose `{placeholder}` tokens
-match the English source exactly. Reuse suitable translations from `examples/locales/` or a previously reviewed
-catalog; Spanish uses `examples/locales/es.json`. Translate missing keys or adapt terminology when the diagram needs it;
-use the English source to check keys and placeholders. Example catalogs may
-lag new Viewer keys; validation reports those gaps and uses English for them. A key that is missing, unrecognized, or has mismatched
-placeholders falls back to its English string — `validate`/`render`/`deliver`
-report the resulting coverage to stderr — rather than breaking the render or
-silently shipping an untranslated string as if it were translated.
+`en`, `zh-CN`, `zh-TW`, `es`, and `ko` are bundled Viewer catalogs and need nothing further.
+Each message resolves as: valid `meta.translations` value → the selected bundled catalog → English.
+For a language without a bundled catalog, supply the catalog here through `meta.translations`:
+map the renderer's canonical message keys (`catalogKeys()` in `renderers/shared/i18n.mjs`)
+to translated strings whose `{placeholder}` tokens match the English source exactly.
+For a bundled locale, supply only the keys whose wording the diagram needs to change.
+Reuse suitable translations from `examples/locales/` or a previously reviewed catalog.
+Validation reports missing or mismatched keys and uses the selected bundled catalog or
+English for them, rather than silently shipping an untranslated string as if it were translated.
 
-For older dev inputs using only `meta.locale: "es"`, copy the Spanish catalog
-into `meta.translations` before rendering again. Existing standalone HTML
-keeps its embedded translations.
-
-For a requested language you cannot supply `meta.translations` for, do not
-write a `meta.locale` with no built-in catalog and no translations. Keep every
-reader-facing authored string in the requested language, omit `meta.locale` so
-the renderer safely uses English, and explicitly tell the user that fixed
-Viewer UI and `<html lang>` remain English and the artifact is not fully localized.
-The fallback applies only to renderer-owned surfaces; it never
-permits authored copy to fall back to English. Do not silently substitute
-`zh-CN` for another language or Chinese locale, and do not machine-translate
-`meta.translations` values without disclosing that they are unreviewed.
+For a requested language without a bundled catalog or usable `meta.translations`, keep
+every reader-facing authored string in that language, omit `meta.locale` so the renderer
+safely uses English, and explicitly tell the user that fixed Viewer UI and `<html lang>`
+remain English and the artifact is not fully localized. The fallback applies only to renderer-owned surfaces; it never permits authored copy to fall back to English.
+Do not silently substitute `zh-CN` for another language or Chinese locale, and do not
+machine-translate `meta.translations` values without disclosing that they are unreviewed.
 
 Keep exact product names, code identifiers, commands, protocols, API paths, and
 environment names intact. Those terms may remain English inside localized copy,
@@ -138,7 +129,7 @@ in the generated viewer.
 
 Generate one responsive artifact for laptops and external displays, preserving the authored SVG/viewBox, proportions, semantic geometry, and normal document flow. Use meaningful content rows and the Reader-declared readable page-scroll behavior when the complete diagram needs more height; viewport fitting does not authorize alternate topology or smaller typography.
 
-- Node anchors start at side midpoints. `left`/`right` change the horizontal endpoint; `top`/`bottom` change the vertical endpoint. For an automatic Architecture relationship, unobstructed facing ports whose axis offset is under 16px may share one horizontal or vertical axis when both endpoints retain the 16px corner gutter. If exactly one endpoint belongs to a spread group, only its unshared counterpart moves; relationships spread at both endpoints keep their distinct ports and outside bridge unless a reciprocal facing pair can jointly use separate straight lanes while preserving endpoint spacing, labels, and all surrounding route and obstacle clearances.
+- Node anchors start at side midpoints. `left`/`right` change the horizontal endpoint; `top`/`bottom` change the vertical endpoint. For an automatic Architecture relationship, unobstructed facing ports whose axis offset is under 16px may share one horizontal or vertical axis when both endpoints retain the 16px corner gutter. If exactly one endpoint belongs to a spread group, only its unshared counterpart moves; relationships spread at both endpoints keep their distinct ports and outside bridge unless a reciprocal facing pair can jointly use separate straight lanes while preserving endpoint spacing, labels, and all surrounding route and obstacle clearances. These are renderer behaviors, not visual acceptance: an Architecture box side carrying only one resolved connection must still attach at its midpoint, even if automatic alignment moved it. Repair the layout or center the explicit port and recheck the complete route.
 - A side is a direction contract. The first and final route segment must be perpendicular and outward/inward in the named direction.
 - In architecture, data-flow, and lifecycle diagrams, explicit `route: "straight"` requests one direct segment, which may be diagonal when endpoint sides are not pinned. The artifact checker preserves this intent; explicit sides, opaque-node clearance, and other quality gates still apply. `via` takes precedence and retains existing rules, including data-flow's requirement for orthogonal via segments.
 - Automatic Port Spread is a default renderer behavior for architecture, workflow, data-flow, and lifecycle diagrams. Shared automatic endpoints spread deterministically and symmetrically with a 16px corner gutter. It does not apply to sequence messages, single relationships, or explicit `via`, `channelX`, `channelY`, `labelAt`, or non-`auto` routes.

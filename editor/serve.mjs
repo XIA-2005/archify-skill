@@ -243,7 +243,7 @@ const server = http.createServer((req, res) => {
     return respond(res,200,fs.readFileSync(path.join(editorDir,'../renderers/shared',sharedModule)),'text/javascript; charset=utf-8');
   }
   if (req.method === 'GET' && route === base + '/auto-layout.mjs') {
-    return respond(res, 200, fs.readFileSync(path.join(editorDir, 'auto-layout.mjs')),
+    return respond(res, 200, fs.readFileSync(path.join(editorDir, '../renderers/shared/architecture-auto-layout.mjs')),
       'text/javascript; charset=utf-8');
   }
   if (req.method === 'GET' && route === base + '/large-graph.mjs') {

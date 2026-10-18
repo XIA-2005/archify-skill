@@ -30,7 +30,7 @@
 | 分组标题独立偏移 | 增加分组标题位置调整，边框和连线路径不随标题一起移动 | 给标题避让空间，保持系统分组与连接关系 |
 | 十种图表类型（3.1.0） | 在 Architecture / Workflow / Sequence / Dataflow / Lifecycle 之外，增加 ERD、Class、Tree、Timeline、Waterfall，均支持 typed JSON 与独立 HTML Viewer | 用同一套交付流程覆盖更多结构与时间线场景 |
 | 多语言 Viewer 目录 | 内置 en / zh-CN / zh-TW / es / ko 等语言包，按 `meta.locale` 选择 | 导出与阅读界面可切换语言，繁体中文不再回退到英文 |
-| Live 动效默认可读 | 各图类型配有匹配的动效编排，读者可切到 Still；动效与拓扑、导出几何分离 | 演示时有动效，导出仍保持清晰静态/可控 GIF |
+| Live 动效 | 各图类型配有匹配的动效编排；新生成正式 HTML 默认进入 Live，读者可切换 Live / Still 且选择跨刷新保留；动效与拓扑、导出几何分离 | 打开即可演示动效；明确选静态后刷新仍保持；导出仍清晰静态/可控 GIF |
 | 连线动效跟随原色 | 悬停脉冲、Intent Trace、环境流等装饰线读取连线实际描边色（含主题/预设切换），通过 `--flow-stroke` 同步 | 彩色或主题化连线上的信号不再一律用强调色 |
 | Architecture draft 入口 | 增加从语义输入生成布局候选的入口，候选仍须经过正式验证和视觉验收 | 辅助生成第一版布局，不以自动布局替代最终审查 |
 
@@ -57,6 +57,12 @@
 - 本版并未移除节点填充，也未将连线原有遮罩改成透明。只移除标签底色，并在用户勾选导出透明背景时移除画布背景。
 
 ## 更新记录
+
+### 2026-10-18（正式 HTML 动效、GIF 默认值与 Architecture draft）
+- **页面默认动态**：新生成的正式 HTML 首次打开时进入 Live；读者明确选择的 Still / Live 会写入本地存储并在刷新后保留；系统「减少动态效果」设置仍会暂停播放。
+- **GIF 默认接力**：有可用连线时序时，GIF 预览和导出默认使用「接力传递」；无可用时序的旧图自动回退「同时流动」，并保留手动切换。
+- **Architecture draft CLI**：新增 `archify draft architecture`（`draft/` 与 `references/architecture-draft.md`），从无几何语义输入编译布局候选；候选仍须正式校验与视觉验收，不得覆盖已有文件。
+- **布局规划共享**：`planAutoLayout` 迁至 `renderers/shared/architecture-auto-layout.mjs`；`editor/auto-layout.mjs` 保留兼容 re-export，编辑器 URL 与 CLI draft 共用同一规划器。
 
 ### 2026-10-16（十种类型文档与 Schema 编辑器）
 - **文档补齐**：`SKILL.md` 覆盖全部十种图表类型与示例路径，并补充 ERD / Class 的 Mermaid 转换规则；`references/authoring-contract.md` 与 `authoring-defaults.md` 补齐五种新类型的布局、字段、关系与时间证据约定。

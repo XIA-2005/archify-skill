@@ -12,7 +12,7 @@ Relationship labels carry meaning. Give them clear space and preserve action, pr
 
 ## Layout and routing
 
-For a fresh Architecture without fixed geometry, follow [Deterministic Architecture draft](architecture-draft.md) before manual placement. It compiles semantic JSON into a checked candidate using the existing renderer. The rules below guide manual fallback and evidence-based repair; drafting does not replace delivery or visual acceptance.
+For a fresh Architecture, establish the reading path and ownership before placing nodes. When that story is a clear directed chain or closed feedback loop, prefer semantic-only JSON and [Deterministic Architecture draft](architecture-draft.md) with `--composition flow|feedback --main-path <ordered-existing-IDs>`; the compiler checks real edge order and places branches. This reduces coordinate work while preserving every condition and boundary. Use layered or direct placement for another topology, an unsuitable draft, or supplied geometry; never discard an accepted layout to try drafting. The same delivery and visual acceptance rules apply to every path.
 
 Place Architecture nodes by their actual connections before assigning coordinates; the router cannot rearrange boxes, so placement decides whether lines stay straight. Classify each relationship first, then place:
 
@@ -22,6 +22,8 @@ Place Architecture nodes by their actual connections before assigning coordinate
 - **Return** (back to an earlier main-path node): put its source on the side of the main path with no branches or stores, so it runs through an empty corridor instead of crossing them.
 - **Second entrance** into a node that already has an incoming edge: place the new source so it reaches that node from another side, usually directly below or above it.
 - **Fan-out**: a side with k relationships needs at least `32 + 14 × (k − 1)`px (four need 74px). Spread a hub's counterparts over two or three sides, or enlarge the hub. Center a parent on its children and align a child with its only parent.
+
+For Architecture, plan each box side from the final attachments: when exactly one connection leaves or enters a side, that endpoint must sit at the side midpoint and its box-adjacent segment must be perpendicular to the side. This applies to bent routes as well as straight ones. Do not offset a lone endpoint merely to align it with the opposite box or shorten a route. Place the connected boxes and choose sides to make centered attachments work; let multiple connections on the same side spread as needed. Check the resolved points after routing under [Visual acceptance](visual-acceptance.md#2-mandatory-screenshot-review).
 
 Before writing positions, trace each non-main relationship: its straight or one-bend corridor must not pass another node or cross another relationship. If it does, move the endpoint that is off the main path. Start the main actor and its first connected step together near the canvas origin; use content rows for vertical rhythm. Omit `meta.viewBox` for a fresh Architecture so the Reader measures intrinsic height. Keep supplied fixed geometry authoritative.
 
@@ -35,7 +37,7 @@ Examples show field shape, not legal values or source facts. Read the mode schem
 
 ## Presentation and modes
 
-Use one primary authored language from the user's choice or the request/conversation. Set `meta.locale` for built-in English (`en`) or Simplified Chinese (`zh-CN`); for other languages, including Spanish (`es`), supply `meta.translations` with reusable UI translations, or disclose the fixed Viewer UI and `<html lang>` English fallback. Keep exact product, code, protocol, command, API, and environment names while localizing surrounding explanation. See [Language consistency](authoring-contract.md#language-consistency) for bilingual cases.
+Use one primary authored language from the user's choice or the request/conversation. `en`, `zh-CN`, `zh-TW`, `es`, and `ko` select a bundled Viewer catalog through `meta.locale`; for another language, supply `meta.translations` with reusable UI translations or disclose the Viewer UI and `<html lang>` English fallback. Keep exact product, code, protocol, command, API, and environment names while localizing surrounding explanation. See [Language consistency](authoring-contract.md#language-consistency) for bilingual cases.
 
 Omit `meta.visual_preset` for classic, `meta.subtitle` for a title-only header, `meta.legend` for truthful auto, and `meta.engineering_profile` for an ordinary system overview. Explicit styles and a subtitle require a user request. Use legend or deployment ownership under the [legend](authoring-contract.md#legend-contract) or [engineering profile](authoring-contract.md#engineering-profile-default) contracts. Branding is optional and explicit when a node names a real product; [Brand marks](brand-marks.md) gives lookup and capture rules for that branch. Never let a badge replace semantic type, label, or relationship facts. Set required `meta.output` to a portable POSIX-relative `.html` path within the working directory; see [Output path contracts](delivery-contract.md#output-path-contracts) for native path exceptions.
 

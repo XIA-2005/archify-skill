@@ -44,10 +44,12 @@ test('GIF preview shares speed settings, paints motion and releases replaced ses
       addEventListener('error',e=>previewErrors.push(e.message));
       window.untilPreview=async predicate=>{const end=performance.now()+10000;while(!predicate()){if(performance.now()>end)throw Error('preview did not settle');await new Promise(r=>setTimeout(r,20));}};
       Archify.exportMenu.open();`);
+    assert.equal(await run(`document.getElementById('export-gif-flow').value`), 'relay', mode + ' defaults to relay');
     const title = await run(`(()=>{const title=document.querySelector('[data-action="preview-gif"] strong');title.scrollIntoView({block:'nearest'});return {text:title.textContent,width:title.getBoundingClientRect().width};})()`);
     assert.ok(title.width > 40 && title.text.trim(), JSON.stringify(title));
     await run(`window.firstPreview=Archify.motion.previewGif();untilPreview(()=>document.documentElement.dataset.gifPreview==='open')`);
     assert.equal(await run(`document.documentElement.dataset.gifPreviewDurationMs`), '4000');
+    assert.equal(await run(`document.documentElement.dataset.gifPreviewFlow`), 'relay');
     const motion = await run(`(async()=>{const canvas=document.querySelector('.archify-gif-preview canvas'),ctx=canvas.getContext('2d');const first=ctx.getImageData(0,0,canvas.width,canvas.height).data;await new Promise(r=>setTimeout(r,300));const next=ctx.getImageData(0,0,canvas.width,canvas.height).data;return first.some((v,i)=>v!==next[i]);})()`);
     assert.equal(motion, true, mode + ' preview must paint changing frames');
     for (const duration of [2000, 6000]) {
@@ -56,6 +58,8 @@ test('GIF preview shares speed settings, paints motion and releases replaced ses
       assert.equal(await run(`Archify.motion.motionDurationMs()`), duration);
     }
     if (mode === 'architecture') {
+      await run(`(()=>{const mode=document.getElementById('export-gif-flow');mode.value='simultaneous';mode.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+      assert.equal(await run(`document.documentElement.dataset.gifPreviewFlow`), 'simultaneous');
       await run(`(()=>{const mode=document.getElementById('export-gif-flow');mode.value='relay';mode.dispatchEvent(new Event('change',{bubbles:true}));})()`);
       assert.equal(await run(`document.documentElement.dataset.gifPreviewFlow`), 'relay');
       const timing = await run(`(()=>{
@@ -108,4 +112,15 @@ test('GIF preview shares speed settings, paints motion and releases replaced ses
     await run(`document.querySelector('.archify-gif-preview [data-preview-close]').click();secondPreview`);
     assert.deepEqual(await run(`({dialogs:document.querySelectorAll('.archify-gif-preview').length,urls:previewUrls.size,errors:previewErrors})`), { dialogs: 0, urls: 0, errors: [] });
   }
+  const staticFile = path.join(scratch, 'static.html');
+  fs.writeFileSync(staticFile, fs.readFileSync(path.join(scratch, 'architecture.html'), 'utf8').replace(' data-animation="trace"', ''));
+  const loaded = browser.cdp.waitFor('Page.loadEventFired', session);
+  await send('Page.navigate', { url: pathToFileURL(staticFile).href });
+  await loaded;
+  await run(`document.fonts.ready`);
+  assert.equal(await run(`Archify.motionGovernor.capable`), false);
+  await run(`Archify.exportMenu.open()`);
+  assert.deepEqual(await run(`(()=>{const item=document.getElementById('export-gif-flow');return {value:item.value,relayDisabled:item.querySelector('option[value="relay"]').disabled};})()`),
+    { value: 'simultaneous', relayDisabled: true });
+  assert.equal(await run(`(async()=>{const gif=await Archify.motion.recordGif({duration:500,fps:12,scale:'1'});return gif.type==='image/gif'&&gif.size>0})()`), true);
 });

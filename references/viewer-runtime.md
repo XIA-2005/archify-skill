@@ -16,7 +16,7 @@ Read this only when the user asks for a reader-facing capability. Ordinary gener
 
 ## Motion and presentation
 
-`meta.animation: "trace"` enables a finite reader-controlled Live/Still trace. Static is the default. Still, reduced motion, page hiding, print, and canonical export preserve complete static meaning. Presentation Stage changes viewer chrome and framing, never authored geometry. This is not a mobile product feature; narrow layouts get containment only.
+New rendered HTML is motion-capable and opens in Live by default. The reader's explicit Still/Live choice persists across reloads. Reduced motion, page hiding, print, and canonical export preserve complete static meaning. Presentation Stage changes viewer chrome and framing, never authored geometry. This is not a mobile product feature; narrow layouts get containment only.
 
 ## Canonical exports
 

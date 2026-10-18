@@ -2189,6 +2189,7 @@ function invalidProvenance(artifactPath, sidecar, reason, evidence = {}) {
 }
 
 const COMMAND_USAGE = {
+  draft: 'architecture <semantic.json> <new-candidate.json> [--composition layered|flow|feedback] [--main-path id,id,...] [--json] [--repo-root path]',
   render: '<type> <input.json> [output.html] [--quality standard|showcase] [--repo-root path]',
   compare: 'architecture <base.json> <head.json> [output.html] [--receipt path] [--json] [--quality standard|showcase] [--repo-root path]',
   deliver: '<type> <input.json> [output.html] [--json] [--open] [--quality standard|showcase] [--repo-root path]',
@@ -6821,6 +6822,30 @@ async function commandMigrate(args) {
 
 // `inspect` delegates here in layout-JSON mode, so argument failures must be
 // attributed to the command the caller actually invoked.
+async function commandDraft(args) {
+  const {rest, repoRoot} = extractRepoRootArgs(args);
+  const positional = [], options = {};
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === '--json') continue;
+    if (['--composition', '--main-path'].includes(rest[i])) {
+      const key = rest[i] === '--composition' ? 'composition' : 'mainPath';
+      if (options[key] !== undefined || !rest[i + 1] || rest[i + 1].startsWith('--')) rejectCliArgument(`Invalid or repeated ${rest[i]}`);
+      options[key] = rest[++i];
+    } else positional.push(rest[i]);
+  }
+  if (options.mainPath !== undefined) options.mainPath = options.mainPath.split(',').map(id => id.trim());
+  const [type, input, output] = positional;
+  if (type !== 'architecture' || !input || !output || positional.length !== 3 || positional.some(arg => arg.startsWith('--'))) {
+    rejectCliArgument(`Usage: archify draft ${COMMAND_USAGE.draft}`);
+  }
+  const {draftArchitecture} = await import('../draft/command.mjs');
+  const receipt = await draftArchitecture(input, output, {repoRoot, ...options});
+  if (args.includes('--json')) console.log(JSON.stringify(receipt, null, 2));
+  else console.log(receipt.ok ? `draft ${receipt.candidate.path}; selected ${receipt.selected}; visual review still required`
+    : receipt.diagnostics.map(diagnostic => `${diagnostic.code}: ${diagnostic.message}`).join('\n'));
+  if (!receipt.ok) process.exitCode = 1;
+}
+
 async function commandValidate(args, invocation = {}) {
   const invokingCommand = invocation.command || 'validate';
   const reportFailure = (options) => reportArtifactFailure({ ...options, command: invokingCommand });
@@ -7073,6 +7098,9 @@ try {
     case 'render':
       commandRender(args);
       break;
+    case 'draft':
+      await commandDraft(args);
+      break;
     case 'compare':
       await commandCompare(args);
       break;
@@ -7130,7 +7158,7 @@ try {
   }
 } catch (error) {
   if (!error.archifyArgument) throw error;
-  if (['validate', 'deliver', 'finalize', 'inspect'].includes(command) && args.includes('--json')) {
+  if (['draft', 'validate', 'deliver', 'finalize', 'inspect'].includes(command) && args.includes('--json')) {
     reportArtifactArgumentFailure(command, error);
   } else {
     fail(error.message);
