@@ -1,7 +1,7 @@
 import { parseRepositoryRemote } from '../renderers/shared/repository-location.mjs';
 
-const COMPARATOR_VERSION = 1;
-const CANONICAL_VERSION = 1;
+const COMPARATOR_VERSION = 2;
+const CANONICAL_VERSION = 2;
 
 export class ArchitectureDeltaError extends Error {
   constructor(code, message, details = {}) {
@@ -38,6 +38,7 @@ function normalizeRepository(repository) {
   const location = parseRepositoryRemote(repository.url, { authored: true, provider: repository.provider });
   const url = location?.url || String(repository.url || '');
   return {
+    ...repository,
     url: location?.provider === 'github' ? url.toLowerCase() : url,
     revision: String(repository.revision || '').toLowerCase(),
     ...(repository.provider !== undefined ? { provider: repository.provider } : {}),
@@ -87,6 +88,7 @@ export function canonicalArchitecture(diagram) {
   delete meta.output;
   if (meta.repository) meta.repository = normalizeRepository(meta.repository);
   return {
+    ...diagram,
     schema_version: diagram.schema_version,
     diagram_type: diagram.diagram_type,
     meta,
@@ -169,7 +171,9 @@ function normalizedField(item, field) {
   return value;
 }
 
-function fieldChanges(before, after, groups) {
+const pointerToken = (value) => String(value).replaceAll('~', '~0').replaceAll('/', '~1');
+
+function fieldChanges(before, after, groups, identityFields = []) {
   const classifications = [];
   const changedFields = [];
   for (const [classification, fields] of Object.entries(groups)) {
@@ -177,25 +181,155 @@ function fieldChanges(before, after, groups) {
     if (changed.length) classifications.push(classification);
     changedFields.push(...changed.map((field) => `/${field}`));
   }
+  const classified = new Set([...Object.values(groups).flat(), ...identityFields]);
+  const unknown = sorted(new Set([...Object.keys(before || {}), ...Object.keys(after || {})]))
+    .filter((field) => !classified.has(field) && !equal(before?.[field], after?.[field]));
+  if (unknown.length) classifications.push('unclassified');
+  changedFields.push(...unknown.map((field) => `/${pointerToken(field)}`));
   return { classifications: sorted(classifications), changedFields: sorted(changedFields) };
 }
 
 const COMPONENT_FIELDS = {
-  semantic: ['type', 'label', 'sublabel', 'tag', 'brand', 'icon'],
+  semantic: ['type', 'label', 'sublabel', 'tag'],
   evidence: ['sources'],
   geometry: ['row', 'col', 'pos', 'size'],
+  presentation: ['brand', 'icon', 'font_sizes'],
 };
 const CONNECTION_FIELDS = {
   topology: ['from', 'to'],
   semantic: ['label', 'variant'],
-  geometry: ['fromSide', 'toSide', 'route', 'via', 'labelAt', 'labelDx', 'labelDy', 'labelSegment', 'width'],
+  geometry: ['fromSide', 'toSide', 'fromPort', 'toPort', 'route', 'via', 'labelAt', 'labelDx', 'labelDy', 'labelSegment'],
+  presentation: ['width', 'labelColor', 'font_sizes'],
 };
-const BOUNDARY_FIELDS = { scope: ['wraps'], geometry: ['pad'] };
+const BOUNDARY_FIELDS = { scope: ['wraps'], geometry: ['pad', 'bounds', 'labelOffset'], presentation: ['font_sizes'] };
+const META_FIELDS = {
+  semantic: ['title', 'subtitle', 'translations', 'views', 'legend'],
+  evidence: ['repository', 'output'],
+  geometry: ['viewBox'],
+  presentation: ['locale', 'animation', 'visual_preset', 'quality_profile', 'font_scale', 'font_sizes', 'line_scale', 'arrow_scale', 'engineering_profile'],
+};
+const LAYOUT_FIELDS = { geometry: ['mode', 'origin', 'cols', 'gapX', 'gapY', 'cellW', 'cellH'] };
+const CARD_FIELDS = { semantic: ['title', 'items'], presentation: ['dot', 'font_sizes'] };
+const FONT_FIELDS = ['label', 'sublabel', 'tag', 'title', 'subtitle', 'legend_title', 'items'];
+const ROOT_FIELDS = ['schema_version', 'diagram_type', 'meta', 'layout', 'components', 'boundaries', 'connections', 'cards'];
+
+function unclassifiedFields(base, head) {
+  const paths = new Set();
+  const check = (value, knownFields, path) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+    for (const field of Object.keys(value)) {
+      if (!knownFields.includes(field)) paths.add(`${path}/${pointerToken(field)}`);
+    }
+  };
+  const keys = (groups, extra = []) => [...Object.values(groups).flat(), ...extra];
+  const fonts = (value, path) => check(value?.font_sizes, FONT_FIELDS, `${path}/font_sizes`);
+  for (const diagram of [base, head]) {
+    check(diagram, ROOT_FIELDS, '');
+    check(diagram.meta, keys(META_FIELDS), '/meta');
+    fonts(diagram.meta, '/meta');
+    check(diagram.meta?.repository, PROVENANCE_FIELDS, '/meta/repository');
+    check(diagram.meta?.legend, ['mode', 'entries'], '/meta/legend');
+    const entries = diagram.meta?.legend?.entries;
+    check(entries, ['frontend', 'backend', 'database', 'cloud', 'security', 'messagebus', 'external'], '/meta/legend/entries');
+    for (const [name, entry] of Object.entries(entries || {})) check(entry, ['label', 'font_size', 'visible'], `/meta/legend/entries/${pointerToken(name)}`);
+    for (const [index, view] of (diagram.meta?.views || []).entries()) check(view, ['id', 'label', 'focus', 'note'], `/meta/views/${index}`);
+    check(diagram.layout, keys(LAYOUT_FIELDS), '/layout');
+    for (const [index, component] of (diagram.components || []).entries()) {
+      const path = `/components/${index}`;
+      check(component, keys(COMPONENT_FIELDS, ['id']), path);
+      fonts(component, path);
+      check(component.brand, ['url', 'sha256'], `${path}/brand`);
+      for (const [sourceIndex, source] of (component.sources || []).entries()) check(source, ['path', 'line', 'end_line', 'label'], `${path}/sources/${sourceIndex}`);
+    }
+    for (const [index, connection] of (diagram.connections || []).entries()) {
+      const path = `/connections/${index}`;
+      check(connection, keys(CONNECTION_FIELDS, ['id']), path);
+      fonts(connection, path);
+    }
+    for (const [index, boundary] of (diagram.boundaries || []).entries()) {
+      const path = `/boundaries/${index}`;
+      check(boundary, keys(BOUNDARY_FIELDS, ['kind', 'label']), path);
+      fonts(boundary, path);
+    }
+    for (const [index, card] of (diagram.cards || []).entries()) {
+      const path = `/cards/${index}`;
+      check(card, keys(CARD_FIELDS), path);
+      fonts(card, path);
+    }
+  }
+  return sorted(paths);
+}
+
+function documentChanges(base, head) {
+  const changes = [];
+  const record = (path, before, after, classifications, extra = {}) => {
+    if (!equal(before, after)) changes.push({ path, classifications: sorted(classifications), base: before, head: after, ...extra });
+  };
+  const fields = (before, after, groups, path, skip = []) => {
+    const categories = new Map(Object.entries(groups).flatMap(([classification, names]) => names.map((name) => [name, classification])));
+    for (const field of sorted(new Set([...Object.keys(before || {}), ...Object.keys(after || {})]))) {
+      if (skip.includes(field)) continue;
+      const normalize = (value) => field === 'repository' ? normalizeRepository(value) : value;
+      record(`${path}/${pointerToken(field)}`, normalize(before?.[field]), normalize(after?.[field]), [categories.get(field) || 'unclassified']);
+    }
+  };
+  fields(base.meta, head.meta, META_FIELDS, '/meta', ['legend']);
+  const baseLegend = base.meta?.legend, headLegend = head.meta?.legend;
+  fields(baseLegend, headLegend, { presentation: ['mode'] }, '/meta/legend', ['entries']);
+  const baseEntries = baseLegend?.entries || {}, headEntries = headLegend?.entries || {};
+  for (const entry of sorted(new Set([...Object.keys(baseEntries), ...Object.keys(headEntries)]))) {
+    fields(baseEntries[entry], headEntries[entry], { semantic: ['label'], presentation: ['font_size', 'visible'] }, `/meta/legend/entries/${pointerToken(entry)}`);
+  }
+  if (!equal(baseLegend, headLegend) && !changes.some((change) => change.path.startsWith('/meta/legend/'))) {
+    record('/meta/legend', baseLegend, headLegend, ['presentation'], { role: 'collection-presence' });
+  }
+  fields(base.layout, head.layout, LAYOUT_FIELDS, '/layout');
+  if (!equal(base.layout, head.layout) && !changes.some((change) => change.path.startsWith('/layout/'))) {
+    record('/layout', base.layout, head.layout, ['geometry'], { role: 'collection-presence' });
+  }
+  for (let index = 0; index < Math.max(base.cards?.length || 0, head.cards?.length || 0); index += 1) {
+    const before = base.cards?.[index], after = head.cards?.[index];
+    if (!before || !after) record(`/cards/${index}`, before, after, ['semantic', 'presentation']);
+    else fields(before, after, CARD_FIELDS, `/cards/${index}`);
+  }
+  if (!equal(base.cards, head.cards) && !changes.some((change) => change.path.startsWith('/cards/'))) {
+    record('/cards', base.cards, head.cards, ['presentation'], { role: 'collection-presence' });
+  }
+  // Author order can affect rendering, routing, and reading. Normalized stable-ID
+  // comparison remains order-independent; retain authored order in this ledger.
+  for (const collection of ['components', 'connections', 'boundaries']) {
+    const key = collection === 'boundaries' ? boundaryKey : (item) => item.id;
+    const before = (base[collection] || []).map(key), after = (head[collection] || []).map(key);
+    if (Object.hasOwn(base, collection) !== Object.hasOwn(head, collection)) {
+      record(`/${collection}`, Object.hasOwn(base, collection), Object.hasOwn(head, collection), ['presentation'], { role: 'collection-presence' });
+    }
+    const shared = new Set(before.filter((id) => after.includes(id)));
+    if (!equal(before.filter((id) => shared.has(id)), after.filter((id) => shared.has(id)))) {
+      record(`/${collection}`, before, after, ['presentation'], { role: 'authored-order' });
+    }
+    const normalizedOrderField = collection === 'components' ? 'sources' : collection === 'boundaries' ? 'wraps' : undefined;
+    if (normalizedOrderField) {
+      const previous = new Map((base[collection] || []).map((item) => [key(item), item]));
+      for (const [index, item] of (head[collection] || []).entries()) {
+        const beforeItem = previous.get(key(item));
+        if (beforeItem && equal(normalizedField(beforeItem, normalizedOrderField), normalizedField(item, normalizedOrderField))) {
+          record(`/${collection}/${index}/${normalizedOrderField}`, beforeItem[normalizedOrderField], item[normalizedOrderField],
+            [normalizedOrderField === 'sources' ? 'evidence' : 'presentation'], { role: 'authored-order', subjectId: key(item) });
+        }
+      }
+    }
+  }
+  for (const field of sorted(new Set([...Object.keys(base), ...Object.keys(head)]))) {
+    if (!ROOT_FIELDS.includes(field)) record(`/${pointerToken(field)}`, base[field], head[field], ['unclassified']);
+  }
+  return changes.sort((left, right) => codepointOrder(left.path, right.path));
+}
 
 function statusFor(classifications, kind) {
   if (classifications.some((value) => ['topology', 'semantic', 'scope'].includes(value))) return 'changed';
   if (classifications.includes('evidence')) return 'evidence-changed';
   if (classifications.includes('geometry')) return kind === 'connection' ? 'rerouted' : kind === 'component' ? 'moved' : 'geometry-changed';
+  if (classifications.some((value) => ['presentation', 'unclassified'].includes(value))) return 'changed';
   return 'same';
 }
 
@@ -208,7 +342,7 @@ function compareEntities(baseIndex, headIndex, kind, groups, describe) {
     if (!base) changes.push({ ...describe(id, undefined, head), status: 'added', classifications: [identityClassification], changedFields: [] });
     else if (!head) changes.push({ ...describe(id, base, undefined), status: 'removed', classifications: [identityClassification], changedFields: [] });
     else {
-      const fields = fieldChanges(base, head, groups);
+      const fields = fieldChanges(base, head, groups, kind === 'boundary' ? ['kind', 'label'] : ['id']);
       const status = statusFor(fields.classifications, kind);
       if (status !== 'same') changes.push({ ...describe(id, base, head), status, ...fields });
     }
@@ -226,33 +360,13 @@ function summaryFor(changes, shape) {
 }
 
 function presentationChanged(base, head) {
-  const basePresentation = {
-    title: base.meta?.title,
-    locale: base.meta?.locale,
-    subtitle: base.meta?.subtitle,
-    animation: base.meta?.animation,
-    visual_preset: base.meta?.visual_preset,
-    quality_profile: base.meta?.quality_profile,
-    engineering_profile: base.meta?.engineering_profile,
-    legend: base.meta?.legend,
-    viewBox: base.meta?.viewBox,
-    layout: base.layout,
-    cards: base.cards,
+  const presentation = (diagram) => {
+    const meta = { ...diagram.meta };
+    delete meta.output;
+    delete meta.repository;
+    return { meta, layout: diagram.layout, cards: diagram.cards };
   };
-  const headPresentation = {
-    title: head.meta?.title,
-    locale: head.meta?.locale,
-    subtitle: head.meta?.subtitle,
-    animation: head.meta?.animation,
-    visual_preset: head.meta?.visual_preset,
-    quality_profile: head.meta?.quality_profile,
-    engineering_profile: head.meta?.engineering_profile,
-    legend: head.meta?.legend,
-    viewBox: head.meta?.viewBox,
-    layout: head.layout,
-    cards: head.cards,
-  };
-  return !equal(basePresentation, headPresentation);
+  return !equal(presentation(base), presentation(head));
 }
 
 export function compareArchitecture(base, head, evidence = {}) {
@@ -306,6 +420,10 @@ export function compareArchitecture(base, head, evidence = {}) {
   }));
   const provenance = provenanceChange(baseRepository, headRepository);
   const provenanceChanged = Boolean(provenance);
+  const document = documentChanges(base, head);
+  const unclassified = unclassifiedFields(base, head);
+  const classifiedPresentationChanged = [...components, ...connections, ...boundaries]
+    .some((change) => change.classifications.includes('presentation'));
 
   return {
     schemaVersion: 1,
@@ -314,7 +432,11 @@ export function compareArchitecture(base, head, evidence = {}) {
     type: 'architecture',
     comparatorVersion: COMPARATOR_VERSION,
     canonicalVersion: CANONICAL_VERSION,
-    completeness: 'complete',
+    completeness: unclassified.length ? 'incomplete' : 'complete',
+    coverage: {
+      classified: unclassified.length === 0,
+      unclassifiedFields: unclassified,
+    },
     proofLevel,
     base: {
       title: base.meta?.title || '',
@@ -334,10 +456,19 @@ export function compareArchitecture(base, head, evidence = {}) {
       components: summaryFor(components, ['added', 'changed', 'evidenceChanged', 'removed', 'moved']),
       connections: summaryFor(connections, ['added', 'changed', 'removed', 'rerouted']),
       boundaries: summaryFor(boundaries, ['added', 'changed', 'removed', 'geometryChanged']),
-      presentationChanged: presentationChanged(base, head),
+      presentationChanged: classifiedPresentationChanged || presentationChanged(base, head)
+        || document.some((change) => change.role === 'authored-order'),
       provenanceChanged,
     },
-    changes: { components, connections, boundaries },
+    changes: { components, connections, boundaries, document },
+    ...(unclassified.length ? {
+      diagnostics: [{
+        code: 'delta/unclassified-fields',
+        subject: 'architecture-comparison',
+        evidence: unclassified,
+        supportedFixes: ['classify the fields in the Architecture comparator before accepting this delta', 'reject fields unsupported by the current Architecture schema'],
+      }],
+    } : {}),
     ...(provenance ? { provenance } : {}),
     identity: {
       components: 'components[].id',
@@ -348,6 +479,9 @@ export function compareArchitecture(base, head, evidence = {}) {
     limitations: [
       'Authored Architecture IR only; no runtime impact, causality, risk, or mergeability is inferred.',
       'Boundary identity is conservatively derived from kind + label.',
+      'Boundary renames are represented as removal and addition; no identity mapping is inferred.',
+      'Document changes include metadata, card fields, delivery relocation, and authored collection order; they are not graph entity changes.',
+      'Field classification describes authored changes; it does not prove that rendered routes or screenshots are unchanged.',
     ],
   };
 }
@@ -749,6 +883,10 @@ function provenanceDetail(provenance) {
 
 export function renderArchitectureDeltaHtml({ receipt, baseSvg, deltaSvg, headSvg, baseHtml = '', headHtml = '', artifactCss }) {
   const rows = architectureDeltaChangeRows(receipt);
+  const document = receipt.changes.document || [];
+  const documentHtml = document.length
+    ? `<details open><summary>Document and authored order changes · ${document.length}</summary><ul class="changes">${document.map((change) => `<li class="document-change" data-document-path="${esc(change.path)}"><code>${esc(change.path)}</code> <span>${esc(change.classifications.join(', '))}</span><pre>${esc(change.base === undefined ? '(absent)' : JSON.stringify(change.base, null, 2))}\n→ ${esc(change.head === undefined ? '(absent)' : JSON.stringify(change.head, null, 2))}</pre></li>`).join('\n')}</ul></details>`
+    : '';
   const changed = total(receipt.summary, 'changed');
   const proof = receipt.proofLevel === 'revision-pinned' ? 'REVISION-PINNED INPUTS' : 'AUTHORED SNAPSHOTS';
   const provenanceChanged = receipt.summary.provenanceChanged === true;
@@ -763,6 +901,8 @@ export function renderArchitectureDeltaHtml({ receipt, baseSvg, deltaSvg, headSv
     return `<li data-change-status="${esc(row.status)}"><button class="change-row" type="button" data-change-index="${index}" data-change-key="${esc(row.key)}" data-change-kind="${esc(row.kindKey)}" data-change-id="${esc(row.id)}" data-change-label="${esc(label)}" data-change-status="${esc(row.status)}" data-change-classifications="${esc(row.classifications.join(', '))}" data-change-target-signature="${esc(targetSignature)}"><span class="token">${esc(markerFor(row.status) || '~')}</span><span>${esc(row.kind)}</span><strong>${esc(label)}</strong><code>${esc(row.id)}</code><span>${esc(row.classifications.join(', '))}</span><span>${esc(row.changedFields.join(', ') || 'identity')}</span></button></li>`;
   }).join('\n') : provenanceChanged
     ? '<li class="empty">No component, relationship, or boundary changes; repository provenance changed.</li>'
+    : document.length
+      ? '<li class="empty">No component, relationship, or boundary changes; document fields or authored order changed.</li>'
     : '<li class="empty">No authored architecture changes.</li>';
   const baseView = baseHtml
     ? `<iframe class="snapshot-frame" title="Before architecture explorer" srcdoc="${esc(baseHtml)}"></iframe>`
@@ -792,7 +932,8 @@ html[data-theme="dark"] body{background:#071019!important;background-image:none!
 <nav class="review-strip" aria-label="Authored change review"><button class="review-step" id="review-overview" type="button" disabled>Overview</button><button class="review-step" id="review-previous" type="button" aria-label="Previous authored change" disabled>←</button><button class="review-step" id="review-play" type="button" aria-pressed="false"${rows.length ? '' : ' disabled'}>Review</button><button class="review-step" id="review-next" type="button" aria-label="Next authored change" disabled>→</button><div class="review-status" id="review-status" role="status" aria-live="polite">Overview · ${rows.length} authored ${provenanceChanged ? 'graph changes · provenance changed' : 'changes'}</div></nav>
 <section class="canvas" data-view="base" hidden>${baseView}</section><section class="canvas" data-view="delta">${deltaSvg}</section><section class="canvas" data-view="head" hidden>${headView}</section>
 <details${rows.length <= 10 ? ' open' : ''}><summary>Exact authored changes · ${rows.length}</summary><ul class="changes">${rowHtml}</ul></details>
-<footer class="proof-foot"><span>Stable IDs only · completeness: complete · ${proof}</span><span>Authored IR only · no risk or mergeability inference</span></footer></main>
+${documentHtml}
+<footer class="proof-foot"><span>Stable IDs only · completeness: ${esc(receipt.completeness)} · ${proof}</span><span>Authored IR only · no risk or mergeability inference</span></footer></main>
 <script id="archify-compare-receipt" type="application/json">${safeJson(receipt)}</script>
 <script>(()=>{
   const REVIEW_DWELL_MS = 1400;
@@ -1106,11 +1247,14 @@ html[data-theme="dark"] body{background:#071019!important;background-image:none!
     ctx.fillText(boundaryLine, 786, 151);
     ctx.font = '650 14px ui-monospace, SFMono-Regular, Menlo, monospace';
     const graphChanges = ['components', 'connections', 'boundaries'].reduce((sum, collection) => sum + (receipt.changes[collection] || []).length, 0);
+    const documentChanges = (receipt.changes.document || []).length;
     const provenanceSummary = ${safeJson(provenanceChanged ? `provenance changed · ${provenanceFields}` : '')};
     const movementSummary = '↔ moved ' + receipt.summary.components.moved + ' · rerouted ' + receipt.summary.connections.rerouted + ' · presentation ' + (receipt.summary.presentationChanged ? 'changed' : 'unchanged');
     const secondary = graphChanges === 0
       ? receipt.summary.provenanceChanged
         ? 'No graph changes · ' + provenanceSummary
+        : documentChanges
+          ? 'No graph changes · document or authored order changes ' + documentChanges
         : 'No authored architecture changes · ' + movementSummary
       : movementSummary + (provenanceSummary ? ' · ' + provenanceSummary : '');
     const proofLine = receipt.proofLevel === 'revision-pinned'
@@ -1277,6 +1421,10 @@ export function validateArchitectureDeltaHtml(html, receipt) {
     failures.push('provenance change notice does not match the receipt');
   }
   if (provenanceChanged && rows.length === 0 && html.includes('No authored architecture changes.')) failures.push('provenance-only delta claims no authored changes');
+  const documentChanges = receipt.changes.document || [];
+  if ((html.match(/class="document-change"/g) || []).length !== documentChanges.length
+    || documentChanges.some((change) => !html.includes(`data-document-path="${esc(change.path)}"`))) failures.push('document change ledger does not match the receipt');
+  if (documentChanges.length && rows.length === 0 && html.includes('No authored architecture changes.')) failures.push('document-only delta claims no authored changes');
   if (!html.includes('aria-label="Authored change review"')) failures.push('missing exact-ID change navigator');
   if ((html.match(/class="change-row"/g) || []).length !== rows.length) failures.push('change navigator row count does not match the receipt');
   if (!html.includes('id="export-svg"') || !html.includes('id="share-card"')

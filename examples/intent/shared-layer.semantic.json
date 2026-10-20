@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "先确定构图意图 · 共享执行层",
+    "locale": "zh-CN",
+    "output": "intent-shared-layer.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "client", "type": "external", "label": "请求入口", "sublabel": "外部请求" },
+    { "id": "receiver", "type": "messagebus", "label": "接收", "sublabel": "消息输入" },
+    { "id": "decoder", "type": "backend", "label": "解析", "sublabel": "语义转换" },
+    { "id": "dispatcher", "type": "backend", "label": "调度", "sublabel": "主流程编排" },
+    { "id": "calculator", "type": "backend", "label": "计算分支", "sublabel": "辅助计算" },
+    { "id": "worker", "type": "backend", "label": "主处理", "sublabel": "业务决策" },
+    { "id": "coordinator", "type": "backend", "label": "协调分支", "sublabel": "关联动作" },
+    { "id": "driver", "type": "backend", "label": "共享执行层", "sublabel": "服务三个终端" },
+    { "id": "deviceA", "type": "external", "label": "设备 A", "sublabel": "独立终端" },
+    { "id": "deviceB", "type": "external", "label": "设备 B", "sublabel": "独立终端" },
+    { "id": "deviceC", "type": "external", "label": "设备 C", "sublabel": "独立终端" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "服务进程", "wraps": ["receiver", "decoder", "dispatcher", "calculator", "worker", "coordinator", "driver"] },
+    { "kind": "region", "label": "外部设备", "wraps": ["deviceA", "deviceB", "deviceC"] }
+  ],
+  "connections": [
+    { "id": "request", "from": "client", "to": "receiver", "variant": "emphasis" },
+    { "id": "decode", "from": "receiver", "to": "decoder", "variant": "emphasis" },
+    { "id": "dispatch", "from": "decoder", "to": "dispatcher", "variant": "emphasis" },
+    { "id": "process", "from": "dispatcher", "to": "worker", "label": "处理", "variant": "emphasis" },
+    { "id": "calculate", "from": "worker", "to": "calculator", "label": "计算" },
+    { "id": "coordinate", "from": "worker", "to": "coordinator", "label": "协调" },
+    { "id": "execute", "from": "worker", "to": "driver", "label": "执行", "variant": "emphasis" },
+    { "id": "assist", "from": "coordinator", "to": "driver", "label": "辅助" },
+    { "id": "device-a", "from": "driver", "to": "deviceA" },
+    { "id": "device-b", "from": "driver", "to": "deviceB" },
+    { "id": "device-c", "from": "driver", "to": "deviceC" },
+    { "id": "reply", "from": "dispatcher", "to": "client", "label": "响应", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "示例范围", "items": ["这是构图意图示例，不表示任何实际项目的实现。", "逻辑分层、主路径与共享关系先确定，像素坐标由编译器计算。"] }
+  ]
+}

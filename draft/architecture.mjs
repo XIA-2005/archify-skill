@@ -1,3 +1,4 @@
+import {compactPoints, readingMetrics} from './quality.mjs';
 import {planAutoLayout} from '../renderers/shared/architecture-auto-layout.mjs';
 import {minimumNodeTextWidth, nodeTextFit} from '../renderers/shared/text-fit.mjs';
 import {labelGeometry, componentTextGeometry} from '../renderers/shared/text-style.mjs';
@@ -6,6 +7,8 @@ import {throwDiagnosticError} from '../renderers/shared/diagnostics.mjs';
 import {collectAmbiguousCorridors} from '../renderers/shared/geometry.mjs';
 import {declaredWideReadabilityBudget, DESKTOP_READER_DIAGRAM_WIDTH} from '../renderers/shared/desktop-readability.mjs';
 import {resolveComposition, compositionPositions} from './composition.mjs';
+import {validateArchitectureIntent, rejectIntent} from './intent.mjs';
+import {architectureIntentDrafts} from './intent-layout.mjs';
 
 // Lay out ownership boundaries as compound nodes. Independent strips put every
 // external actor far above its actual owner; collapsing groups retains the
@@ -108,7 +111,11 @@ export function architectureDrafts(semantic, options = {}) {
     code: 'draft/unknown-component', subject: {ids: [...new Set(missing)]}, evidence: {},
     supportedFixes: ['correct the reference or add the missing component from verified source facts'],
   }]);
-  const composition = resolveComposition(semantic, options);
+  if (options.intent !== undefined && (options.composition !== undefined || options.mainPath !== undefined)) {
+    rejectIntent('options', 'Choose an intent file or legacy composition/main-path options, not both.');
+  }
+  const intent = options.intent === undefined ? null : validateArchitectureIntent(semantic, options.intent);
+  const composition = intent ? null : resolveComposition(semantic, options);
   const sized = structuredClone(semantic);
   // New drafts use readable source text; explicit source styling is preserved.
   // This is a draft-only default, never a renderer or schema default.
@@ -123,6 +130,7 @@ export function architectureDrafts(semantic, options = {}) {
     const height = Math.max(72, keys.reduce((sum, key) => sum + sizes[key] * 1.3 + 4, 0) + 32);
     node.size = [Math.ceil(width), Math.ceil(height)];
   }
+  if (intent) return architectureIntentDrafts(sized, intent);
   const labelGap = Math.max(80, ...(semantic.connections || []).map(edge => edge.label
     ? labelGeometry(edge.label, edge.font_sizes?.label ?? 9 * scale, [0, 0]).width + 36 : 0));
   const proposals = [];
@@ -139,7 +147,7 @@ export function architectureDrafts(semantic, options = {}) {
       const identity = JSON.stringify(positions);
       if (seen.has(identity)) continue;
       seen.add(identity);
-      proposals.push({id: `${composition.composition}-${split}-${spacing}`, candidate});
+      proposals.push({id: `${composition.composition}-${split}-${spacing}`, structure: composition.composition, candidate});
     }
     return proposals;
   }
@@ -150,18 +158,18 @@ export function architectureDrafts(semantic, options = {}) {
     const identity = JSON.stringify(positions);
     if (seen.has(identity)) continue;
     seen.add(identity);
-    proposals.push({id: `${direction.toLowerCase()}-${innerDirection.toLowerCase()}-${spacing}`, candidate});
+    proposals.push({id: `${direction.toLowerCase()}-${innerDirection.toLowerCase()}-${spacing}`, structure: 'layered', candidate});
   }
   return proposals;
 }
 
 // Advisory ranking only, after unchanged renderer/artifact acceptance. The
 // selected layout still needs browser checks and actual screenshot inspection.
-export function draftMetrics(layout, candidate) {
+export function draftMetrics(layout, candidate, intent) {
   let bends = 0, routeLength = 0, crossings = 0;
   const segments = [];
   for (const [edge, connection] of layout.connections.entries()) {
-    const points = connection.points;
+    const points = compactPoints(connection.points);
     bends += Math.max(0, points.length - 2);
     for (let i = 1; i < points.length; i++) {
       const [a, b] = [points[i - 1], points[i]];
@@ -209,6 +217,6 @@ export function draftMetrics(layout, candidate) {
   const score = counterflowCorridors.length * 3000 + crossings * 700
     + Math.max(0, 7.5 - desktopFitTextPx) * 1500 + Math.max(0, estimatedDiagramHeightPx - 774) * 3
     + bends * 8 + routeLength / 100 + width * height / 100000;
-  return {width, height, crossings, bends, routeLength: Math.round(routeLength), counterflowCorridors,
+  return {width, height, crossings, bends, edgeCount: layout.connections.length, reading: readingMetrics(layout, candidate, intent), routeLength: Math.round(routeLength), counterflowCorridors,
     desktopText, estimatedDiagramHeightPx, desktopFitTextPx, score: Math.round(score * 100) / 100};
 }

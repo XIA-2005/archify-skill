@@ -34,6 +34,8 @@
 | 连线动效跟随原色 | 悬停脉冲、Intent Trace、环境流等装饰线读取连线实际描边色（含主题/预设切换），通过 `--flow-stroke` 同步 | 彩色或主题化连线上的信号不再一律用强调色 |
 | 导出进度反馈 | PNG / WebP / GIF / WebM 导出时在页面底部显示独立进度条（百分比与阶段文案），菜单关闭后仍可见；进行中的导出复用同一进度并禁用重复点击 | 长导出时知道卡在渲染、录制还是编码，避免误以为卡住或重复触发 |
 | Architecture draft 入口 | 增加从语义输入生成布局候选的入口，候选仍须经过正式验证和视觉验收 | 辅助生成第一版布局，不以自动布局替代最终审查 |
+| Architecture 布局质量会话 | 新增语义冻结、结构布局候选、确定性选型与有界视觉审查（`draft/quality-session.mjs`、`draft/intent*.mjs`、`draft/semantic.mjs`）；候选仍须正式校验与视觉验收 | 在保持语义不变的前提下提高 Architecture 首稿可读性，不以自动布局替代审查 |
+| Architecture 增量更新 | 新增对可信旧候选的有界内容提案与几何权限策略（`incremental/`、`archify update architecture`）；冻结基线、准备→交付→检查，并支持补充产物比对 | 在同一系统上做授权更新时保留用户固定几何与已批准语义，避免整图重排 |
 
 这张表包括此前的可视化编辑扩展，以及本仓库新增的导出和易用性改进；并非所有能力都由最后一个提交单独引入。
 
@@ -58,6 +60,13 @@
 - 本版并未移除节点填充，也未将连线原有遮罩改成透明。只移除标签底色；Viewer 导出默认开启透明背景并移除画布背景，取消勾选后恢复不透明底。
 
 ## 更新记录
+
+### 2026-10-20（Architecture 布局质量与增量更新）
+- **布局质量会话**：新增 `draft/quality-session.mjs` 与语义/意图模块（`draft/semantic.mjs`、`draft/intent.mjs`、`draft/intent-layout.mjs`、`draft/quality.mjs`、`draft/attachments.mjs`），支持语义冻结、结构候选、确定性选型与有界视觉审查；文档见 `references/architecture-quality-workflow.md`。
+- **增量更新**：新增 `incremental/`（changes / layout / artifacts / command）与 CLI `archify update architecture`；冻结基线、有界内容提案、几何来源与权限、准备→交付→检查，以及补充产物比对；文档见 `references/architecture-incremental-update.md`。
+- **接线**：`bin/archify.mjs`、`delta/architecture-delta.mjs`、`SKILL.md`、相关 draft/editor/references/tests 同步；`examples/intent/` 与 layout-quality / incremental 测试纳入。
+- **仓库**：新增 `.gitignore`（忽略 `node_modules/`、`.archify/`、本地凭证与私有收据）；保留 `.gitattributes` 与 customization-manifest 测试辅助。
+- **清单**：`customization-manifest.json` 哈希与受保护路径已对齐本次源码。
 
 ### 2026-10-18（导出默认透明背景）
 - **默认透明导出**：Viewer 导出菜单「透明背景」默认开启；读者可取消以恢复不透明底。

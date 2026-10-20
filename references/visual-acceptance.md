@@ -48,10 +48,14 @@ Also trace the ordered main path through `connections[].variant` and the light/d
 - `visual_review: skipped` — screenshot could not be inspected or capture failed. Report why, and never imply visual acceptance.
 - `visual_review: not_required` — only for genuinely simple diagrams with no trigger.
 
-Repair the connected group responsible for the defect, not unrelated coordinates. At most **two** evidence-based composition repairs per authored candidate, each with new `finalize --out-dir` and new screenshot evidence. Compare before/after *at the same viewport*, preserve the better verified result and history; if unsuccessful, report the specific visual gap instead of repeatedly shifting arbitrary nodes.
+Repair the connected group responsible for the defect, not unrelated coordinates. At most **two** evidence-based composition repairs per generation request, each with new `finalize --out-dir` and new screenshot evidence. Compare before/after *at the same viewport*, preserve the better verified result and history; if unsuccessful, report the specific visual gap instead of repeatedly shifting arbitrary nodes.
 
 ## 4. Regression discipline
 
 Use `scripts/visual-regression.mjs` to compare fixed original Archify fixtures (unchanged official examples), a canonical Workflow, and any user-provided project candidate. Run it before and after changing rendering/layout/skill workflow. Preserve separate screenshot directories for old/new versions. The script checks deterministic content integrity, CLI/Chrome gates, and measured metrics; **humans still compare images**. An exact pixel hash is informational because Chrome/font environments can legitimately change.
 
 Keep renderer changes separate from editor improvements. A new editor cannot silently change a frozen JSON fixture or its independently rendered output. Always identify baseline renderer version and candidate checksum when making a regression claim.
+
+## Durable Architecture review record
+
+For the semantic/intent workflow, follow [Architecture quality workflow](architecture-quality-workflow.md). One request state records initial image inspection, at most two subsequent repairs, screenshot/candidate/HTML hashes, specific affected subjects, next action and best-version replacement. New filenames and structural alternatives do not restart the budget. A checked receipt is not visual testimony; the actual reviewer must inspect both desktop themes and keep its review separate from machine receipts.

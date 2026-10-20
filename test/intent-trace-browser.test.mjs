@@ -273,7 +273,9 @@ test('Intent Trace preserves input handoffs, transient geometry and cleanup', {
       svg.innerHTML='<g data-edge-from="a" data-edge-to="b" data-edge-key="ab" transform="translate(3 4)"><path id="original-path" d="M0 0 L10 10" class="original" style="opacity:.7" marker-end="url(#arrow)"/><line x1="1" y1="2" x2="3" y2="4"/></g><path data-edge-from="a" data-edge-to="b" data-edge-key="ab" d="M2 3 L4 5"/><polyline data-edge-from="c" data-edge-to="a" data-edge-label="incoming" points="1,2 3,4"/><path data-edge-from="a" data-edge-to="a" d="M0 0 C1 2 3 4 0 0"/><g data-node-id="a" data-node-label="Alpha"><rect width="10" height="10"/></g><g data-node-id="b"/><g data-node-id="c"/><g data-node-id="solo"/>';
       const original=svg.querySelector('#original-path').outerHTML;Archify.intentTrace.show('a',{announce:true});
       const overlay=svg.querySelector('[data-intent-trace-overlay]'),shapes=[...overlay.querySelectorAll('.intent-trace-flow')];
-      const data={directions:shapes.map(n=>n.getAttribute('data-direction')),status:document.getElementById('intent-trace-status').textContent,
+      const data={directions:shapes.map(n=>n.getAttribute('data-direction')),
+        playbackDirections:shapes.map(n=>getComputedStyle(n).animationDirection),
+        fillModes:shapes.map(n=>getComputedStyle(n).animationFillMode),status:document.getElementById('intent-trace-status').textContent,
         transform:overlay.firstElementChild.getAttribute('transform'),d:shapes[0].getAttribute('d'),points:shapes[3].getAttribute('points'),
         stripped:!overlay.querySelector('[id],[marker-end],[data-edge-from]'),pathLength:shapes.every(n=>!n.hasAttribute('pathLength')),
         original:svg.querySelector('#original-path').outerHTML===original,beforeNodes:overlay.nextElementSibling.hasAttribute('data-node-id')};
@@ -281,6 +283,8 @@ test('Intent Trace preserves input handoffs, transient geometry and cleanup', {
       return data;
     })()`);
     assert.deepEqual(result.directions, ['out', 'out', 'out', 'in', 'loop']);
+    assert.deepEqual(result.playbackDirections, ['normal', 'normal', 'normal', 'normal', 'normal']);
+    assert.deepEqual(result.fillModes, ['forwards', 'forwards', 'forwards', 'forwards', 'forwards']);
     assert.match(result.status, /Alpha/); assert.match(result.status, /1 outgoing/); assert.match(result.status, /1 incoming/);
     assert.match(result.status, /1 self loop/); assert.match(result.status, /3 connections/);
     assert.equal(result.transform, 'translate(3 4)'); assert.equal(result.d, 'M0 0 L10 10'); assert.equal(result.points, '1,2 3,4');
@@ -322,6 +326,8 @@ test('Intent Trace preserves input handoffs, transient geometry and cleanup', {
     await move('api'); await run(`intentWait(()=>Archify.motionGovernor.owner()==='intent')`);
     await run(`intentWait(()=>intentEnds.some(e=>e.trusted&&e.name==='archify-intent-trace-flow'))`);
     assert.equal((await snapshot('animation-complete')).active, 'api');
+    const completed = await run(`(()=>{const c=getComputedStyle(document.querySelector('.intent-trace-flow'));return {fill:c.animationFillMode,opacity:c.opacity};})()`);
+    assert.deepEqual(completed, {fill:'forwards',opacity:'0'});
     const direction = await run(`getComputedStyle(document.querySelector('.intent-trace-flow[data-direction="in"]')).animationDirection`);
     assert.equal(direction, 'normal');
     await move(); await run(`intentWait(()=>Archify.motionGovernor.owner()==='')`);

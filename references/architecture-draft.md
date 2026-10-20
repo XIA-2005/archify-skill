@@ -42,7 +42,7 @@ The compiler measures complete text at preferred font sizes. Flow places the
 main chain on a rail with side branches near their actual neighbors; feedback
 uses two rails with a return path. Boundary checks reject proposals that would
 enclose unrelated nodes. Complicated nested ownership can require the layered
-or manual path. The compiler tries at most eight deterministic combinations.
+or manual path. The legacy layered compiler tries at most eight deterministic combinations.
 The layered strategy reuses the editor's planner. It uses the
 canonical renderer. Schema, source evidence, renderer and artifact acceptance
 remain unchanged. Disjoint and nested boundaries are supported; overlapping
@@ -62,7 +62,8 @@ Existing fonts, labels and sources are never reduced to fit.
 - Each `attempts[]` item separates `layoutPassed`, `artifactChecked` and, when
   checked, `artifactPassed`. Unchecked proposals are not accepted alternatives.
   Desktop text projection, height, counterflow, crossings, bends and length
-  rank proposals; they are advisory metrics.
+  remain advisory metrics. All new draft proposals use the grouped lexicographic
+  policy described below; a legacy weighted score is retained only for diagnosis.
 - `reviewRecommendations[]` names small text, tall composition or specific
   relationships sharing a counterflow corridor. Its projection is an estimate,
   not browser evidence or a new acceptance gate. Preserve complete labels;
@@ -79,3 +80,11 @@ For an unattractive but technically passing result, use
 [Architecture layout repair](architecture-layout-repair.md). Keep the better
 verified candidate; at most two evidence-based composition repairs. There is no
 quality exemption for a smaller model and no automatic model escalation.
+
+## Intent quality selection and request-level review
+
+For fresh representable Architecture topology, prefer the existing `--intent intent.json` route under [Architecture quality workflow](architecture-quality-workflow.md). It freezes meaning before geometry and keeps the existing layered/manual fallback for unsupported ownership or topology. It does not change ordinary rendering or user geometry.
+
+Intent enumerates up to three structural families (`spine`, `balanced`, `source-centered`), each with the existing three spacing probes. These are **not** nine formal deliveries. All proposals use unchanged canonical layout gates; non-geometric fields and separately recorded defaults are compared before ranking. Lexicographic reading-quality keys replace the weighted score as selector. Canonical artifact checks are attempted in ranked order until a valid candidate is found; unchecked proposals are explicitly not accepted alternatives. Receipts include families, rejected structural probes, semantic digests/defaults, rank keys and selection reasons. Desktop and balance estimates are advisory, never browser or visual certificates.
+
+Use `editor/deliver.mjs` once per changed candidate, inspect the actual captures and record an independent review with `draft/quality-session.mjs`. Keep one request state across at most two repairs and preserve best evidence. Rebuilding candidates does not reset that budget. The recorder validates evidence binding but does not perform visual perception. Existing machine `visualAcceptance: human-required` remains unchanged.

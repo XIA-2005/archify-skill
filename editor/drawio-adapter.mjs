@@ -369,7 +369,14 @@ export function createDrawioAdapter(frame, callbacks) {
       resolve();
     };window.addEventListener('message',receive);
   });
-  function invalidate(){signature=undefined;seeded=false;lastTitleSnap.clear();}
+  function invalidate(nextSpec){
+    signature=undefined;
+    // Text-only history keeps native cells and route anchors. Geometry history
+    // still needs a fresh official scene and boundary-title snap on next load.
+    if(!nextSpec||!imported||geometryKey(imported)!==geometryKey(nextSpec)){
+      seeded=false;lastTitleSnap.clear();
+    }
+  }
   return {ready,load,invalidate,
     select(kind,id){if(!api)return;const c=kind==='node'?nodes.get(id):kind==='edge'?edges.get(id):boundaries.get(id);suppress=true;api.graph.setSelectionCell(c||null);suppress=false;},
     focus(id){if(api&&nodes.has(id))api.graph.scrollCellToVisible(nodes.get(id),true);},

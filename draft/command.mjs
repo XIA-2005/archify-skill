@@ -1,9 +1,13 @@
+import {loneAttachmentDefects, centerLoneAttachments} from './attachments.mjs';
+import {compareSemantics} from './semantic.mjs';
+import {compareDrafts, qualityKey, repairRecommendations} from './quality.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash, randomUUID} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {architectureDrafts, draftMetrics} from './architecture.mjs';
+import {INTENT_CONTRACT, rejectIntent} from './intent.mjs';
 import {createOwnedTempDirectory} from '../renderers/shared/owned-temp-directory.mjs';
 import {validateAuthoredOutputPath} from '../renderers/shared/output-path.mjs';
 
@@ -26,7 +30,7 @@ function run(args, env) {
   return {ok, receipt, diagnostics};
 }
 
-export async function draftArchitecture(input, output, {repoRoot, composition, mainPath} = {}) {
+export async function draftArchitecture(input, output, {repoRoot, composition, mainPath, intentPath} = {}) {
   const inputPath = path.resolve(input), outputPath = path.resolve(output);
   const receipt = {schemaVersion: 1, command: 'draft', type: 'architecture', ok: false,
     input: inputPath, output: outputPath, attempts: [], diagnostics: [], visualReview: 'not-requested'};
@@ -41,8 +45,26 @@ export async function draftArchitecture(input, output, {repoRoot, composition, m
     const inputBytes = fs.readFileSync(inputPath);
     receipt.inputSha256 = hash(inputBytes);
     const semantic = JSON.parse(inputBytes.toString('utf8'));
-    // Schema validation runs inside the planner before accessing required fields.
-    const proposals = architectureDrafts(semantic, {composition, mainPath});
+    let intent;
+    if (intentPath !== undefined) {
+      if (composition !== undefined || mainPath !== undefined) {
+        rejectIntent('options', 'Choose --intent or legacy composition/main-path options, not both.');
+      }
+      const source = path.resolve(intentPath);
+      try {
+        const bytes = fs.readFileSync(source);
+        intent = JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/, ''));
+        receipt.intent = {contract: INTENT_CONTRACT, path: source, sha256: hash(bytes), bytes: bytes.length};
+      } catch (error) {
+        rejectIntent('input', 'Could not read the intent JSON.', {path: source}, {reason: error.message});
+      }
+    }
+    // Schema, fixed-geometry and intent checks all run before sizing/placement.
+    const proposals = architectureDrafts(semantic, {composition, mainPath, intent});
+    if (receipt.intent) receipt.intent.plan = proposals[0]?.intent;
+    receipt.selectionPolicy = 'semantic-and-artifact-gates-then-lexicographic-v1';
+    receipt.structures = [...new Set(proposals.map(p => p.structure || p.id))];
+    receipt.rejectedStructures = proposals.rejected || [];
     validateAuthoredOutputPath(semantic.meta.output);
     const quality = semantic.meta.quality_profile ?? 'showcase';
     temporary = createOwnedTempDirectory('archify-draft-');
@@ -53,16 +75,41 @@ export async function draftArchitecture(input, output, {repoRoot, composition, m
       proposal.candidate.meta.quality_profile = quality;
       const candidatePath = path.join(temporary.path, `${proposal.id}.json`);
       fs.writeFileSync(candidatePath, JSON.stringify(proposal.candidate, null, 2) + '\n', {flag: 'wx'});
-      const result = run([path.join(root, 'renderers/architecture/render-architecture.mjs'), candidatePath,
+      let result = run([path.join(root, 'renderers/architecture/render-architecture.mjs'), candidatePath,
         path.join(temporary.path, 'unused.html'), '--layout-json'], env);
-      const attempt = {id: proposal.id, layoutPassed: result.ok, artifactChecked: false, diagnostics: result.diagnostics};
+      const geometryRepairs = [];
+      for (let pass = 0; result.ok && pass < 2; pass++) {
+        const defects = loneAttachmentDefects(proposal.candidate, result.receipt);
+        if (!defects.length) break;
+        geometryRepairs.push({pass: pass + 1, defects});
+        centerLoneAttachments(proposal.candidate, defects);
+        fs.writeFileSync(candidatePath, JSON.stringify(proposal.candidate, null, 2) + '\n');
+        result = run([path.join(root, 'renderers/architecture/render-architecture.mjs'), candidatePath,
+          path.join(temporary.path, 'unused.html'), '--layout-json'], env);
+      }
+      if (result.ok) {
+        const defects = loneAttachmentDefects(proposal.candidate, result.receipt);
+        if (defects.length) result = {ok: false, diagnostics: [failure('draft/lone-attachment',
+          'Generated singleton attachments remain off-center.', {}, {defects})]};
+      }
+      const attempt = {id: proposal.id, structure: proposal.structure, geometryRepairs,
+        layoutPassed: result.ok, artifactChecked: false, diagnostics: result.diagnostics};
       receipt.attempts.push(attempt);
       if (result.ok) {
-        attempt.metrics = draftMetrics(result.receipt, proposal.candidate);
+        attempt.semantic = compareSemantics(semantic, proposal.candidate);
+        if (!attempt.semantic.equivalent) {
+          attempt.layoutPassed = false;
+          attempt.diagnostics.push(failure('draft/semantic-mismatch', 'A layout proposal changed non-geometric content.'));
+          attempt.selectionReason = 'semantic-mismatch';
+          continue;
+        }
+        attempt.metrics = draftMetrics(result.receipt, proposal.candidate, proposal.intent);
+        attempt.rankKey = qualityKey(attempt.metrics);
         passing.push({...proposal, candidatePath, attempt});
       }
     }
-    passing.sort((a, b) => a.attempt.metrics.score - b.attempt.metrics.score || a.id.localeCompare(b.id));
+    passing.sort(compareDrafts);
+    receipt.ranked = passing.map(proposal => proposal.id);
     let selected;
     for (const proposal of passing) {
       const validation = run([path.join(root, 'bin/archify.mjs'), 'validate', 'architecture', proposal.candidatePath,
@@ -70,7 +117,8 @@ export async function draftArchitecture(input, output, {repoRoot, composition, m
       proposal.attempt.artifactChecked = true;
       proposal.attempt.artifactPassed = validation.ok;
       proposal.attempt.diagnostics.push(...validation.diagnostics);
-      if (validation.ok) { selected = proposal; break; }
+      if (validation.ok) { selected = proposal; proposal.attempt.selectionReason = 'best-ranked-artifact-valid'; break; }
+      proposal.attempt.selectionReason = 'artifact-gate-failed';
     }
     if (!selected) {
       receipt.diagnostics.push(failure('draft/no-passing-layout', 'No generated layout passed the existing checks.', {},
@@ -92,14 +140,19 @@ export async function draftArchitecture(input, output, {repoRoot, composition, m
     receipt.candidate = {path: outputPath, sha256: hash(bytes), bytes: bytes.length};
     receipt.quality = quality;
     const metrics = selected.attempt.metrics;
-    receipt.reviewRecommendations = [];
+    receipt.semantic = selected.attempt.semantic;
+    for (const attempt of receipt.attempts) attempt.selectionReason ??= attempt.layoutPassed
+      ? 'lower-ranked-not-artifact-checked' : 'layout-gate-failed';
+    receipt.reviewRecommendations = repairRecommendations(metrics);
+    receipt.reviewWorkflow = {entry: 'draft/quality-session.mjs', maxRepairs: 2,
+      action: 'record-real-image-review-after-delivery', visualAcceptance: 'human-required'};
     if (metrics.desktopText[0]?.projectedPx < 7.5) receipt.reviewRecommendations.push({
       code: 'draft/desktop-text', severity: 'warning', subject: metrics.desktopText[0].owner,
       evidence: {viewport: [1440, 900], targetPx: 7.5, texts: metrics.desktopText, estimateOnly: true},
       supportedFixes: ['compact empty corridors or choose another composition; preserve complete text and explicit font sizes; inspect the actual desktop screenshots'],
     });
     if (metrics.estimatedDiagramHeightPx > 774) receipt.reviewRecommendations.push({
-      code: 'draft/tall-composition', severity: 'warning', subject: {composition: composition || 'layered'},
+      code: 'draft/tall-composition', severity: 'warning', subject: {composition: receipt.intent ? 'intent-bands' : composition || 'layered'},
       evidence: {estimatedDiagramHeightPx: metrics.estimatedDiagramHeightPx, availableHeightPx: 774, estimateOnly: true},
       supportedFixes: ['for a real loop use feedback with its directed main path; otherwise reflow the connected scene; verify full-diagram readability in screenshots'],
     });

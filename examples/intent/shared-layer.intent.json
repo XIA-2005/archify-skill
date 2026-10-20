@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "question": "说明请求如何经过主处理与辅助分支进入共享执行层，再分发到三个独立终端；响应走主链之外。",
+  "bands": [
+    ["client", "receiver", "decoder", "dispatcher"],
+    ["calculator", "worker", "coordinator"],
+    ["driver"],
+    ["deviceA", "deviceB", "deviceC"]
+  ],
+  "mainPath": ["client", "receiver", "decoder", "dispatcher", "worker", "driver"],
+  "branches": [
+    { "node": "calculator", "anchor": "worker" },
+    { "node": "coordinator", "anchor": "worker" }
+  ],
+  "sharedLayers": [
+    { "node": "driver", "targets": ["deviceA", "deviceB", "deviceC"] }
+  ],
+  "feedbackEdges": [
+    { "from": "dispatcher", "to": "client", "corridor": "above" }
+  ]
+}

@@ -407,9 +407,9 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
     future.push(clone(spec)); spec = history.pop();
     if(cameraSnapshots.has(spec))camera={...cameraSnapshots.get(spec)};
     selected = null; selectedHandle = null; selectedNodes.clear();
-    // Force the next draw.io load to accept current routes+scene (undo may rebuild
-    // via load(null,null) first; without invalidate, seeded stays true and title snap is skipped).
-    drawio?.invalidate?.();
+    // Geometry history needs a fresh routes/scene snap. Text-only history
+    // instead patches the same native cells and preserves route/label identity.
+    drawio?.invalidate?.(spec);
     draw(); renderInspector(); updateButtons(); markDirty();
   }
   function redo() {
@@ -420,7 +420,7 @@ import {LARGE_GRAPH_THRESHOLD,nodeBox,sceneBounds,intersectsViewport,routeBox,
     history.push(clone(spec)); spec = future.pop();
     if(cameraSnapshots.has(spec))camera={...cameraSnapshots.get(spec)};
     selected = null; selectedHandle = null; selectedNodes.clear();
-    drawio?.invalidate?.();
+    drawio?.invalidate?.(spec);
     draw(); renderInspector(); updateButtons(); markDirty();
   }
   function updateButtons() {

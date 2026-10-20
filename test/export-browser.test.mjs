@@ -636,17 +636,18 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
     assert.deepEqual(cleanup, { message: 'alpha configure fault', closed: 2, revoked: true, errors: [] });
   });
 
-  await t.test('50 FPS GIF keeps all 300 timed frames, late motion and exact cropped-frame pixels including alpha', async () => {
+  await t.test('50 FPS simultaneous GIF keeps all 300 timed frames, late motion and exact cropped-frame pixels including alpha', async () => {
     const production = fs.readFileSync(file, 'utf8');
     const fullFrame = production.replace(/else \{(\s+left = width; top = height; right = bottom = -1;)/, 'else if (false) {$1');
     assert.ok(fullFrame !== production, 'full-frame reference disables only rectangle cropping');
     const observations = [];
+    try {
     for (const transparent of [false, true]) {
       for (const reference of [false, true]) {
         fs.writeFileSync(file, reference ? fullFrame : production);
         await load({theme:'light'});
         const result = await run(`(async()=>{
-          const blob=await Archify.motion.recordGif({duration:6000,fps:50,transparentBackground:${transparent},scale:1});
+          const blob=await Archify.motion.recordGif({duration:6000,fps:50,transparentBackground:${transparent},scale:1,flowMode:'simultaneous'});
           const bytes=await blob.arrayBuffer(), decoder=new ImageDecoder({data:bytes,type:'image/gif'});
           await decoder.tracks.ready;
           const hashes=[],delays=[];let last='',lateChanges=0;
@@ -671,7 +672,7 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
       assert.deepEqual(cropped.hashes,full.hashes,'all decoded RGBA pixels equal the full-frame reference');
       assert.ok(cropped.bytes<full.bytes,'changed rectangles reduce playback data without losing frames');
     }
-    fs.writeFileSync(file,production);
+    } finally { fs.writeFileSync(file,production); }
     records.push({kind:'gif-50-fps',observations});
   });
 
@@ -706,13 +707,14 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
   });
 
   await t.test('GIF decodes a repeating single-pass clip and binary transparency without MediaRecorder or trace mode', async () => {
-    for (const [transparent,theme] of [[false,'dark'],[false,'light'],[true,'dark'],[true,'light']]) {
+    for (const [transparent,theme,flowMode] of [[false,'dark'],[false,'light'],[true,'dark'],[true,'light']]
+      .flatMap(([transparent,theme])=>[undefined,'simultaneous'].map(flowMode=>[transparent,theme,flowMode]))) {
       await load({theme});
       const result=await run(`(async()=>{
         window.MediaRecorder=undefined;
         const svg=document.querySelector('.diagram-container svg');svg.removeAttribute('data-animation');
         svg.querySelectorAll('[data-animate]').forEach(e=>e.removeAttribute('data-animate'));
-        const blob=await Archify.motion.recordGif({duration:500,fps:12,transparentBackground:${transparent}});
+        const blob=await Archify.motion.recordGif(${JSON.stringify({duration:500,fps:12,transparentBackground:transparent,...(flowMode?{flowMode}:{})})});
         window.gifBlob=blob;
         const decoder=new ImageDecoder({data:await blob.arrayBuffer(),type:'image/gif'});
         await decoder.tracks.ready;
@@ -728,7 +730,9 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
           const blank=ctx.getImageData(0,0,100,30).data;
           for(let p=3;p<blank.length;p+=4)if(blank[p])blankPainted++;
           if(!first){first=pixels;for(let p=3;p<pixels.length;p+=4){if(pixels[p]===0)transparent++;if(pixels[p]===255)opaque++;}}
-          else if(i===count-1)for(let p=0;p<pixels.length;p++)if(pixels[p]!==first[p])changed++;
+          // A relay clip can settle back to its still baseline before the last
+          // frame. Verify actual movement across all frames, not only the last.
+          else {let difference=0;for(let p=0;p<pixels.length;p++)if(pixels[p]!==first[p])difference++;changed=Math.max(changed,difference);}
         }
         decoder.close();return {count,loop:loop===Infinity?'infinite':loop,duration,changed,transparent,opaque,blankPainted,size:blob.size,type:blob.type};
       })()`);
@@ -737,8 +741,8 @@ test('Export preserves menu, clipboard, semantic cards and recording lifecycles'
       assert.ok(result.opaque>100);assert.equal(result.type,'image/gif');
       assert.ok(transparent?result.transparent>100:result.transparent===0,JSON.stringify(result));
       if(transparent)assert.equal(result.blankPainted,0,'transparent GIF paints its empty canvas');
-      assert.ok((await record('gif-'+transparent+'-'+theme)).urls.every(u=>u.revoked));
-      if(evidence){const bytes=await run(`gifBlob.arrayBuffer().then(b=>Array.from(new Uint8Array(b)))`);fs.writeFileSync(path.join(evidence,(transparent?'transparent':'opaque')+'-'+theme+'.gif'),Buffer.from(bytes));}
+      assert.ok((await record('gif-'+transparent+'-'+theme+'-'+(flowMode||'default-relay'))).urls.every(u=>u.revoked));
+      if(evidence){const bytes=await run(`gifBlob.arrayBuffer().then(b=>Array.from(new Uint8Array(b)))`);fs.writeFileSync(path.join(evidence,(transparent?'transparent':'opaque')+'-'+theme+'-'+(flowMode||'default-relay')+'.gif'),Buffer.from(bytes));}
     }
     await load();await run('Archify.exportMenu.open()');await click('[data-format="gif"]');
     await run('exportWait(()=>exportDownloads.length===1)');

@@ -32,6 +32,13 @@ function canonicalSvg(html) {
   return html.match(/<svg\b[\s\S]*?<\/svg>/)?.[0] || '';
 }
 
+function flowRules(html) {
+  const css = (html.match(/<style\b[^>]*>[\s\S]*?<\/style>/g) || []).join('\n');
+  return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(([, selectors, declarations]) => ({selectors, declarations}))
+    .filter(rule => rule.selectors.includes('.intent-trace-flow'));
+}
+
 test('all typed renderers inherit one geometry-neutral Intent Trace', () => {
   for (const [mode, example] of Object.entries(CASES)) {
     const html = render(mode, example);
@@ -60,14 +67,18 @@ test('Intent Trace derives exact one-hop direction from stable renderer relation
 test('Intent Trace keeps incoming and outgoing motion on authored source-to-target geometry', () => {
   for (const [mode, example] of Object.entries(CASES)) {
     const html = render(mode, example);
-    const incomingRule = html.match(/\.intent-trace-flow\[data-direction="in"\]\s*\{[\s\S]*?\}/)?.[0] || '';
-    assert.ok(incomingRule, `${mode}: expected the incoming Intent Trace style`);
-    assert.doesNotMatch(
-      incomingRule,
-      /animation-direction\s*:\s*reverse/,
-      `${mode}: incoming authored geometry must not be replayed from target to source`,
-    );
-    assert.match(incomingRule, /animation-direction\s*:\s*normal/, mode);
+    // All directions now share one style. Requiring a direction-specific CSS
+    // selector rejects correct shared styling without testing playback.
+    const rules = flowRules(html);
+    const animated = rules.filter(rule => /animation\s*:\s*archify-intent-trace-flow\b/.test(rule.declarations));
+    assert.ok(animated.length > 0, `${mode}: expected Intent Trace playback`);
+    for (const rule of rules) {
+      assert.doesNotMatch(rule.declarations, /animation-direction\s*:\s*(?:reverse|alternate)/,
+        `${mode}: authored geometry must not be replayed backwards`);
+    }
+    for (const rule of animated) {
+      assert.doesNotMatch(rule.declarations, /\b(?:reverse|alternate|alternate-reverse)\b/, mode);
+    }
     assert.match(html, /function traceGeometry\(shape, direction\)[\s\S]+shape\.cloneNode\(false\)/, mode);
     assert.match(html, /@keyframes archify-intent-trace-flow[\s\S]+stroke-dashoffset: var\(--intent-trace-end\)/, mode);
   }
@@ -95,11 +106,10 @@ test('Intent Trace normalizes motion, respects reduced motion, and exports clean
   const html = render('architecture', CASES.architecture);
   assert.match(html, /var signalLength = 24 \/ scale/);
   assert.match(html, /clone\.style\.strokeWidth = \(3\.1 \/ scale\)/);
-  assert.match(html, /\.intent-trace-flow\[data-direction="out"\]/);
-  assert.match(html, /\.intent-trace-flow\[data-direction="in"\]/);
-  assert.match(html, /\.intent-trace-flow\[data-direction="loop"\]/);
+  assert.ok(flowRules(html).some(rule => /animation\s*:\s*archify-intent-trace-flow\b/.test(rule.declarations)));
+  assert.match(html, /clone\.setAttribute\('data-direction', direction\)/);
   assert.match(html, /@keyframes archify-intent-trace-flow/);
-  assert.match(html, /animation: archify-intent-trace-flow 1\.15s linear 1 both/);
+  assert.match(html, /animation: archify-intent-trace-flow 1\.15s linear 1 forwards/);
   assert.match(html, /@media \(prefers-reduced-motion: reduce\)[\s\S]+\.intent-trace-flow \{[\s\S]+animation: none !important/);
   assert.match(html, /clone\.removeAttribute\('data-intent-trace-active'\)/);
   assert.match(html, /clone\.querySelectorAll\('\[data-intent-trace-overlay\]'\)/);

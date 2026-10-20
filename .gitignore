@@ -1,0 +1,20 @@
+# Installed dependencies and local diagram / experiment output.
+/node_modules/
+/.archify/
+
+# Local service credentials and machine-specific configuration.
+.env
+.env.*
+!.env.example
+!.env.sample
+.secrets/
+*.key
+*.dpapi
+
+# Local service receipts can contain editor access tokens.
+*.private.json
+
+# Operating-system metadata.
+.DS_Store
+Thumbs.db
+Desktop.ini

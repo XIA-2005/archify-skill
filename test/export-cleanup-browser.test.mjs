@@ -172,9 +172,16 @@ test('Export cleanup preserves canonical artifacts and live interaction state', 
       { authorTheme: 'dark', hostTheme: 'dark', format: 'svg-light', theme: 'light', background: 'rgb(244, 245, 247)' },
       { authorTheme: 'light', hostTheme: 'light', format: 'svg-dark', theme: 'dark', background: 'rgb(2, 6, 23)' },
     ];
-    for (const item of cases) {
+    for (const item of cases.flatMap(item => [true, false].map(transparent => ({...item, transparent})))) {
       await load(files.architecture, item.authorTheme);
-      const text = await exported(`fixed-${item.theme}`, '', item.format);
+      const {transparent} = item;
+      // The viewer intentionally defaults to transparency. Exercise both
+      // settings through its public control instead of assuming a background.
+      const text = await exported(`fixed-${item.theme}-${transparent ? 'transparent' : 'opaque'}`, `
+        const toggle = document.querySelector('[data-action="transparent-background"]');
+        if (toggle.getAttribute('aria-checked') !== ${JSON.stringify(String(transparent))}) toggle.click();
+        if (toggle.getAttribute('aria-checked') !== ${JSON.stringify(String(transparent))}) throw new Error('Background control did not update');
+      `, item.format);
       assert.match(text, new RegExp(`<svg[^>]*data-theme="${item.theme}"`));
       assert.doesNotMatch(text, /@media \(prefers-color-scheme: light\)/);
 
@@ -195,16 +202,41 @@ test('Export cleanup preserves canonical artifacts and live interaction state', 
               ${JSON.stringify(text)}.replace(/^<\\?xml[^>]*>\\s*/, '');
           });
           const root = frame.contentDocument.documentElement;
-          const background = root.querySelector('svg > style + rect');
+          const svg = root.querySelector('svg');
+          const background = svg.querySelector(':scope > style + rect');
+          const nodeMask = svg.querySelector('[data-node-id] > .c-mask');
+          if (!nodeMask) throw new Error('Export lost node backing geometry');
+          const blob = new Blob([${JSON.stringify(text)}], {type:'image/svg+xml'});
+          const url = URL.createObjectURL(blob);
+          let pixel;
+          try {
+            const image = new Image(); image.src = url; await image.decode();
+            const canvas = document.createElement('canvas'); canvas.width=canvas.height=1;
+            const ctx = canvas.getContext('2d'); ctx.drawImage(image,-5,-5);
+            pixel = [...ctx.getImageData(0,0,1,1).data];
+          } finally { URL.revokeObjectURL(url); }
           return {
-            theme: root.querySelector('svg').getAttribute('data-theme'),
-            background: frame.contentWindow.getComputedStyle(background).fill,
+            theme: svg.getAttribute('data-theme'),
+            background: background ? frame.contentWindow.getComputedStyle(background).fill : null,
+            gridCount: svg.querySelectorAll('rect[fill="url(#grid)"]').length,
+            nodeMaskOpaque: frame.contentWindow.getComputedStyle(nodeMask).fill !== 'none' &&
+              frame.contentWindow.getComputedStyle(nodeMask).fillOpacity === '1',
+            pixel,
           };
         } finally {
           frame.remove();
         }
       })()`, true);
-      assert.deepEqual(rendered, { theme: item.theme, background: item.background }, item.format);
+      assert.equal(rendered.theme, item.theme, item.format);
+      assert.equal(rendered.background, transparent ? null : item.background, item.format);
+      assert.equal(rendered.nodeMaskOpaque, true, `${item.format}: preserve node backings`);
+      if (transparent) {
+        assert.equal(rendered.gridCount, 0, `${item.format}: omit grid for transparency`);
+        assert.deepEqual(rendered.pixel, [0,0,0,0], item.format);
+      } else {
+        assert.deepEqual(rendered.pixel, item.theme === 'light' ? [244,245,247,255] : [2,6,23,255], item.format);
+      }
+      records.push({label:`fixed-theme-${item.theme}`,transparent,...rendered});
     }
   });
 

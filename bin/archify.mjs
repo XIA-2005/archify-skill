@@ -2189,7 +2189,8 @@ function invalidProvenance(artifactPath, sidecar, reason, evidence = {}) {
 }
 
 const COMMAND_USAGE = {
-  draft: 'architecture <semantic.json> <new-candidate.json> [--composition layered|flow|feedback] [--main-path id,id,...] [--json] [--repo-root path]',
+  draft: 'architecture <semantic.json> <new-candidate.json> [--intent intent.json] [--composition layered|flow|feedback] [--main-path id,id,...] [--json] [--repo-root path]',
+  update: 'architecture <baseline.json> <proposal.json> <approved-semantic.json> <new-candidate.json> [--geometry-policy path] [--main-path id,id,...] [--json] [--repo-root path]',
   render: '<type> <input.json> [output.html] [--quality standard|showcase] [--repo-root path]',
   compare: 'architecture <base.json> <head.json> [output.html] [--receipt path] [--json] [--quality standard|showcase] [--repo-root path]',
   deliver: '<type> <input.json> [output.html] [--json] [--open] [--quality standard|showcase] [--repo-root path]',
@@ -6827,13 +6828,18 @@ async function commandDraft(args) {
   const positional = [], options = {};
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--json') continue;
-    if (['--composition', '--main-path'].includes(rest[i])) {
-      const key = rest[i] === '--composition' ? 'composition' : 'mainPath';
+    if (['--composition', '--main-path', '--intent'].includes(rest[i])) {
+      const key = rest[i] === '--intent' ? 'intentPath' : rest[i] === '--composition' ? 'composition' : 'mainPath';
       if (options[key] !== undefined || !rest[i + 1] || rest[i + 1].startsWith('--')) rejectCliArgument(`Invalid or repeated ${rest[i]}`);
       options[key] = rest[++i];
     } else positional.push(rest[i]);
   }
   if (options.mainPath !== undefined) options.mainPath = options.mainPath.split(',').map(id => id.trim());
+  if (options.intentPath !== undefined && (options.composition !== undefined || options.mainPath !== undefined)) {
+    rejectCliArgument('--intent cannot be combined with --composition or --main-path.', {
+      code: 'cli/conflicting-options', supportedFixes: ['use the intent file as the single layout-intent owner'],
+    });
+  }
   const [type, input, output] = positional;
   if (type !== 'architecture' || !input || !output || positional.length !== 3 || positional.some(arg => arg.startsWith('--'))) {
     rejectCliArgument(`Usage: archify draft ${COMMAND_USAGE.draft}`);
@@ -6843,6 +6849,30 @@ async function commandDraft(args) {
   if (args.includes('--json')) console.log(JSON.stringify(receipt, null, 2));
   else console.log(receipt.ok ? `draft ${receipt.candidate.path}; selected ${receipt.selected}; visual review still required`
     : receipt.diagnostics.map(diagnostic => `${diagnostic.code}: ${diagnostic.message}`).join('\n'));
+  if (!receipt.ok) process.exitCode = 1;
+}
+
+async function commandUpdate(args) {
+  const {rest, repoRoot} = extractRepoRootArgs(args);
+  const positional = [], options = {};
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--json') continue;
+    if (['--geometry-policy', '--main-path'].includes(arg)) {
+      const key = arg === '--geometry-policy' ? 'geometryPolicyPath' : 'mainPath';
+      if (options[key] !== undefined || !rest[index + 1] || rest[index + 1].startsWith('--')) rejectCliArgument(`Invalid or repeated ${arg}`);
+      options[key] = rest[++index];
+    } else if (arg.startsWith('--')) rejectCliArgument(`Unknown update option "${arg}".`);
+    else positional.push(arg);
+  }
+  const [type, baseline, proposal, approved, output] = positional;
+  if (type !== 'architecture' || positional.length !== 5) rejectCliArgument(`Usage: archify update ${COMMAND_USAGE.update}`);
+  if (options.mainPath !== undefined) options.mainPath = options.mainPath.split(',').map(value => value.trim());
+  const {updateArchitecture} = await import('../incremental/command.mjs');
+  const receipt = await updateArchitecture(baseline, proposal, approved, output, {repoRoot, ...options});
+  if (args.includes('--json')) console.log(JSON.stringify(receipt, null, 2));
+  else console.log(receipt.ok ? `updated ${receipt.candidate.path}; visual review still required`
+    : receipt.diagnostics.map(item => `${item.code}: ${item.message}`).join('\n'));
   if (!receipt.ok) process.exitCode = 1;
 }
 
@@ -7100,6 +7130,9 @@ try {
       break;
     case 'draft':
       await commandDraft(args);
+      break;
+    case 'update':
+      await commandUpdate(args);
       break;
     case 'compare':
       await commandCompare(args);
