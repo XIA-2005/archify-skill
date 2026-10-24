@@ -90,7 +90,7 @@
     },
     {
       "path": "editor/drawio-adapter.mjs",
-      "sha256": "9a99e2a387d9a53045acd7b74c91b1fa5f2780712404f780d79cfeac3249d873"
+      "sha256": "6adf1e4d80f19915bcdaddb2a429824e3e92e73cb729fb2910706407dd34e365"
     },
     {
       "path": "editor/drawio-frame.html",
@@ -98,7 +98,7 @@
     },
     {
       "path": "editor/editor.html",
-      "sha256": "90a2efc9e06840bc34434e4619b7a262270a02f2e896db42613f4feefa360510"
+      "sha256": "fb01621975bce4b5e901faabecbd3ad93ed58f17e29eac6a2032c572632322ef"
     },
     {
       "path": "editor/large-graph.mjs",
@@ -110,7 +110,7 @@
     },
     {
       "path": "editor/README.md",
-      "sha256": "b201c8c7988d4daa4f2487abde57c9b75fd091c0bab8b1f04b5119696cbedbe9"
+      "sha256": "2e807dac32edba2da8eee426523f3cbf6ec7f96bd5d080b860c740b6c3806baa"
     },
     {
       "path": "editor/route-preview-cache.mjs",
@@ -162,7 +162,7 @@
     },
     {
       "path": "editor/test-font-drag.mjs",
-      "sha256": "2c6d77aa53b51f5013c82028ac08e6337bf8a9bd592a995e60cb3876ff45cd8f"
+      "sha256": "7fdc7eb30ed26792839219e8b720162cd84e55ef5ae56a3c1a031969d6211333"
     },
     {
       "path": "editor/test-interaction.mjs",
@@ -354,7 +354,7 @@
     },
     {
       "path": "references/architecture-layout-repair.md",
-      "sha256": "5d7b5210cd461a82ee74e45a2f5a46e76e3283f713f71ecfb767fac742faac8c"
+      "sha256": "cae0c44d506cb2fecd7bcdff35c93c1eaaffc45400892224061b0dab95066644"
     },
     {
       "path": "references/architecture-quality-workflow.md",

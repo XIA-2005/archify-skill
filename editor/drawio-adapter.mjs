@@ -155,8 +155,8 @@ export function createDrawioAdapter(frame, callbacks) {
     ui.editor.setModified(false); // The parent owns persistence and unload warnings.
     callbacks.change(next);
   }
-  function updateNodeText(node,cell) {
-    const {graph}=api,model=graph.model,sizes=componentTextGeometry(node).sizes;
+  function updateNodeText(node,cell,scale=1) {
+    const {graph}=api,model=graph.model,sizes=componentTextGeometry(node,scale).sizes;
     model.setValue(cell,node.label);
     graph.setCellStyles('fontSize',sizes.label,[cell]);
     const decorated=Boolean(node.sublabel||node.tag);
@@ -178,15 +178,15 @@ export function createDrawioAdapter(frame, callbacks) {
     const {graph,ui}=api,model=graph.model;
     suppress=true;model.beginUpdate();
     try{
-      for(const n of spec.components)updateNodeText(n,nodes.get(n.id));
+      for(const n of spec.components)updateNodeText(n,nodes.get(n.id),spec.meta.font_scale??1);
       for(const [i,b]of (spec.boundaries||[]).entries()){
         const c=boundaries.get(i);model.setValue(c,b.label);
-        graph.setCellStyles('fontSize',b.font_sizes?.label??9,[c]);
+        graph.setCellStyles('fontSize',b.font_sizes?.label??9*(spec.meta.font_scale??1),[c]);
       }
       for(const [i,e]of (spec.connections||[]).entries()){
         const c=edges.get(e.id||'edge-'+i);
         model.setValue(c,e.label||'');
-        graph.setCellStyles('fontSize',e.font_sizes?.label??8,[c]);
+        graph.setCellStyles('fontSize',e.font_sizes?.label??8*(spec.meta.font_scale??1),[c]);
         graph.setCellStyles('fontColor',e.labelColor||'#526b83',[c]);
       }
     }finally{model.endUpdate();suppress=false;}
@@ -224,7 +224,7 @@ export function createDrawioAdapter(frame, callbacks) {
         const cell=graph.insertVertex(parent,'boundary-'+i,b.label,...box,style({
           rounded:1,arcSize:10,fillColor:'none',strokeColor:'#647c98',dashed:1,
           container:1,collapsible:0,recursiveResize:0,connectable:0,movableLabel:1,
-          align:'left',verticalAlign:'top',spacing:12,fontSize:b.font_sizes?.label??9,
+          align:'left',verticalAlign:'top',spacing:12,fontSize:b.font_sizes?.label??9*(spec.meta.font_scale??1),
           fontColor:'#526b83',html:0}));
         cell.archifyKind='boundary';cell.archifyId=i;cell.setConnectable(false);boundaries.set(i,cell);
       }
@@ -236,19 +236,19 @@ export function createDrawioAdapter(frame, callbacks) {
           .filter(([i,c])=>{const g=c.geometry;return box[0]>=g.x&&box[1]>=g.y&&box[0]+box[2]<=g.x+g.width&&box[1]+box[3]<=g.y+g.height;})
           .sort((a,b)=>a[1].geometry.width*a[1].geometry.height-b[1].geometry.width*b[1].geometry.height)[0]?.[1];
         if(owner){box[0]-=owner.geometry.x;box[1]-=owner.geometry.y;}
-        const sizes=componentTextGeometry(n).sizes;
+        const sizes=componentTextGeometry(n,spec.meta.font_scale??1).sizes;
         const c=graph.insertVertex(owner||parent,'node-'+n.id,n.label,...box,style({
           rounded:1,arcSize:12,whiteSpace:'wrap',html:0,fillColor:'#eaf3fd',strokeColor:'#739cc3',
           fontColor:'#172f48',fontSize:sizes.label,rotation:0}));
         c.archifyKind='node';c.archifyId=n.id;nodes.set(n.id,c);
-        updateNodeText(n,c);
+        updateNodeText(n,c,spec.meta.font_scale??1);
       }
       for(const [i,e]of (spec.connections||[]).entries()){
         const r=routes?.get(i),id=e.id||'edge-'+i;
         const entries={edgeStyle:e.route==='straight'?'none':'orthogonalEdgeStyle',rounded:1,
           html:0,endArrow:'block',endFill:1,strokeColor:e.variant==='emphasis'?'#087e61':'#2679bd',
           strokeWidth:(e.width||1.5)*(spec.meta.line_scale||1),fontColor:e.labelColor||'#526b83',
-          fontSize:e.font_sizes?.label??8,labelBackgroundColor:'none'};
+          fontSize:e.font_sizes?.label??8*(spec.meta.font_scale??1),labelBackgroundColor:'none'};
         const points=r?.points;
         for(const [field,node,p]of [['exit',nodes.get(e.from),e.fromPort],['entry',nodes.get(e.to),e.toPort]]){
           if(!node)continue;
@@ -389,7 +389,7 @@ export function createDrawioAdapter(frame, callbacks) {
         const c=edges.get(e.id||'edge-'+i);if(!c)continue;const s=g.getCellStyle(c);
         if(s.curved==1)issues.push('曲线');
         if(s.endArrow!=='block'||s.startArrow&&s.startArrow!=='none')issues.push('自定义箭头');
-        if(Number(s.fontSize)!==(e.font_sizes?.label??8)||s.fontColor!==(e.labelColor||'#526b83'))issues.push('原生文字样式（请使用 Archify 属性面板）');
+        if(Number(s.fontSize)!==(e.font_sizes?.label??8*(imported.meta.font_scale??1))||s.fontColor!==(e.labelColor||'#526b83'))issues.push('原生文字样式（请使用 Archify 属性面板）');
         if(s.strokeColor!==(e.variant==='emphasis'?'#087e61':'#2679bd'))issues.push('原生线条颜色');
       }
       for(const [id,c]of nodes){const s=g.getCellStyle(c);if(Number(s.rotation||0)!==0)issues.push('旋转模块');}

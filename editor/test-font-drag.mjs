@@ -212,7 +212,7 @@ try {
   await wait(async()=>{const msg=await evaluate(`document.getElementById('message').textContent`);if(msg.includes('JSON 已保存'))return true;if(msg.includes('保存异常')||msg.includes('未通过'))throw Error(msg);return false;},60000);
   const saved=JSON.parse(fs.readFileSync(path.join(tmp,'candidate.json'),'utf8'));
   assert.equal(saved.components[0].font_sizes.label,12);assert.equal(saved.cards[0].font_sizes.items[0],13);
-  assert.equal(saved.meta.font_scale,undefined);
+  assert.equal(saved.meta.font_scale,source.meta.font_scale);
   assert.equal(saved.meta.arrow_scale,1.5);
   fs.copyFileSync(path.join(tmp,'diagram.html'),path.join(evidence,'tested-diagram.html'));
   fs.copyFileSync(path.join(tmp,'candidate.json'),path.join(evidence,'tested-candidate.json'));
